@@ -167,5 +167,3 @@ def test_a_crash_still_closes_the_run(db: psycopg.Connection) -> None:
         go(db, [[play(100, 2, 0)]], strategy=Broken())
     [(reason,)] = rows(db, "select stop_reason from runs")
     assert isinstance(reason, str) and reason.startswith("error: RuntimeError")
-
-
