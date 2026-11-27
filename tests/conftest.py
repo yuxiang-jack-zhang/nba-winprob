@@ -7,13 +7,19 @@ checks for that and skips with an actionable message rather than failing oddly.
 
 from __future__ import annotations
 
+import os
+import uuid
+from collections.abc import Iterator
 from pathlib import Path
 
 import pandas as pd
+import psycopg
 import pytest
+from psycopg.conninfo import make_conninfo
 
 from nba_winprob.config import Settings, get_settings
 from nba_winprob.data.pregame_features import load_base_tables
+from nba_winprob.db import migrate
 
 _LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
 
@@ -54,3 +60,38 @@ def baseline_master(settings: Settings) -> pd.DataFrame:
     path = settings.baseline_dir / "pregame_master.csv"
     require_baseline(path)
     return pd.read_csv(path, low_memory=False)
+
+
+def create_database(settings: Settings) -> Iterator[psycopg.Connection]:
+    """A freshly created, uniquely named database, dropped afterwards (D7).
+
+    Skips with no server, or fails when ``NBA_REQUIRE_DB=1`` (set in CI).
+    """
+    try:
+        admin = psycopg.connect(settings.database_url, autocommit=True, connect_timeout=3)
+    except psycopg.OperationalError as exc:
+        message = f"no Postgres at NBA_DATABASE_URL ({exc}); start it with `make db-up`"
+        if os.environ.get("NBA_REQUIRE_DB") == "1":
+            pytest.fail(message)
+        pytest.skip(message)
+    name = f"nba_test_{uuid.uuid4().hex[:12]}"
+    admin.execute(f'create database "{name}"')
+    try:
+        with psycopg.connect(
+            make_conninfo(settings.database_url, dbname=name), autocommit=True
+        ) as conn:
+            yield conn
+    finally:
+        admin.execute(f'drop database "{name}" with (force)')
+        admin.close()
+
+
+@pytest.fixture
+def empty_db(settings: Settings) -> Iterator[psycopg.Connection]:
+    yield from create_database(settings)
+
+
+@pytest.fixture
+def db(empty_db: psycopg.Connection) -> psycopg.Connection:
+    migrate.apply_migrations(empty_db)
+    return empty_db
