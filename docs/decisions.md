@@ -213,3 +213,16 @@ when any position has no price rather than counted at zero. The CLI's connection
 scenario whose numbers the tool tests pin, opt-in because they bill. **Revisit if:** Jack
 wants push updates (Discord) or follow-up questions, which need a session and a schedule.
 
+## D18. Discord: separate read-only process, templated pushes, in-memory chat — 2026-11-27
+**Decision:** the Discord bot is its own process (`agent discord`) on read-only connections,
+not part of `live run`, so nothing on the chat side can stall or crash the trader. Pushes
+(fills, rejections, settled-game recaps, run stops) are templated text from a `Notifier`
+that keeps high-water marks and seeds them from the tables at start, so a restart never
+replays old events; only the 30-minute digest calls the model. A recap waits for the game's
+settlement, not ESPN's final play, so its P&L uses the $1/$0 result rather than the last
+price. Chat history lives in memory per process and resets on "reset", past 40 messages, or
+after a failed exchange (an unanswered tool call would make every later request fail).
+**Limits:** anyone who can post in the channel can ask questions (and spend API credit); the
+channel should be private. **Revisit if:** the bot needs to survive restarts mid-game with
+its conversation, or serve more than one person.
+

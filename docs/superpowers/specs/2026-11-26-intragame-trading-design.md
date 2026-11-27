@@ -132,6 +132,24 @@ games are going.
   appear and claims that must not. Opt-in (`NBA_RUN_LLM_EVALS=1`), since each run costs
   money.
 
+### Discord: push updates and chat (added 2026-11-27)
+
+Jack chose Discord both ways (he is away from the laptop) and all three push triggers.
+
+- **Process:** `nba-winprob agent discord`, separate from `live run`, on read-only
+  connections: a Discord or Claude outage cannot touch the trader.
+- **Pushes** (templated, no model call, every 15 s): each fill with its reason, each
+  rejected order, a recap with the game's P&L when a traded game settles, and each run
+  stop with total P&L. Each is pushed once; a restart starts from what is already in the
+  tables rather than replaying the evening.
+- **Digest:** every 30 minutes while the latest run is active and a game is live, the agent
+  answers a fixed digest question in a fresh conversation.
+- **Chat:** every message in the one configured channel is a question; the channel shares
+  one conversation (`ask(history=...)`), "reset" starts over, and it restarts on its own past
+  40 messages or after an API error. One question at a time.
+- **Answers** fit one Discord message (2000 characters; longer text is split at lines), and
+  the prompt asks for under 120 words.
+
 ## Pre-registered spec: `RunReversal` v1
 
 Fixed before any in-game data is examined. Not to be tuned on the results; variants
