@@ -42,7 +42,7 @@ class Notifier:
             "select exists (select 1 from runs where id = %s and stopped_at is null)",
             [run],
         ).fetchone()
-        live = any(g["status"] == "live" for g in tools._board(self.conn, run).values())
+        live = any(g["status"] == "live" for g in tools.game_board(self.conn, run).values())
         due = bool(row and row[0]) and live and now - self.last_digest >= self.digest_every_s
         if due:
             self.last_digest = now
@@ -58,14 +58,14 @@ class Notifier:
                 " from fills f join orders o on o.id = f.order_id where f.id > %s order by f.id",
                 [self.last_fill],
             ).fetchall()
-        board = tools._board(self.conn)
+        board = tools.game_board(self.conn)
         out = []
         for r in rows:
             self.last_fill = r["id"]
             verb = "Bought" if r["contracts"] > 0 else "Sold"
             out.append(
-                f"{verb} {abs(r['contracts'])} {tools._team(board, r['game_id'], r['team'])}"
-                f" @ {r['price']:.2f} in {tools._matchup(board, r['game_id'])}"
+                f"{verb} {abs(r['contracts'])} {tools.team_name(board, r['game_id'], r['team'])}"
+                f" @ {r['price']:.2f} in {tools.matchup(board, r['game_id'])}"
                 f" (fee ${r['fee']:.2f}). Why: {r['reason']}"
             )
         return out
@@ -77,15 +77,15 @@ class Notifier:
                 " where status = 'rejected' and not (id = any(%s)) order by id",
                 [list(self.rejected)],
             ).fetchall()
-        board = tools._board(self.conn)
+        board = tools.game_board(self.conn)
         out = []
         for r in rows:
             self.rejected.add(r["id"])
             verb = "buy" if r["contracts"] > 0 else "sell"
             out.append(
                 f"Order rejected: {verb} {abs(r['contracts'])}"
-                f" {tools._team(board, r['game_id'], r['team'])}"
-                f" in {tools._matchup(board, r['game_id'])}: {r['error']}"
+                f" {tools.team_name(board, r['game_id'], r['team'])}"
+                f" in {tools.matchup(board, r['game_id'])}: {r['error']}"
             )
         return out
 
@@ -94,12 +94,12 @@ class Notifier:
         run = tools.latest_run_id(self.conn)
         if run is None:
             return []
-        settled = tools._settlements(self.conn, run)
+        settled = tools.settlements(self.conn, run)
         status = tools.run_status(self.conn, run)
         return [(run, g["game_id"], g) for g in status["pnl_by_game"] if g["game_id"] in settled]
 
     def _recaps(self) -> list[str]:
-        board = tools._board(self.conn)
+        board = tools.game_board(self.conn)
         out = []
         for run, game_id, entry in self._settled_games():
             if (run, game_id) in self.recapped:

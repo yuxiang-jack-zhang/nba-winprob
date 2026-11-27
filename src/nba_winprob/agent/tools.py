@@ -39,7 +39,7 @@ def clock_text(period: int | None, clock: float | None) -> str:
     return f"{quarter} {minutes}:{seconds:02d}"
 
 
-def _board(conn: psycopg.Connection, run_id: int | None = None) -> dict[str, dict[str, Any]]:
+def game_board(conn: psycopg.Connection, run_id: int | None = None) -> dict[str, dict[str, Any]]:
     return {g["game_id"]: g for g in live_store.game_states(conn, run_id)}
 
 
@@ -51,12 +51,12 @@ def _limit(limit: int | None, default: int) -> int:
     return limit
 
 
-def _matchup(board: dict[str, dict[str, Any]], game_id: str) -> str:
+def matchup(board: dict[str, dict[str, Any]], game_id: str) -> str:
     g = board.get(game_id)
     return f"{g['away']} @ {g['home']}" if g else game_id
 
 
-def _team(board: dict[str, dict[str, Any]], game_id: str, side: str) -> str:
+def team_name(board: dict[str, dict[str, Any]], game_id: str, side: str) -> str:
     g = board.get(game_id)
     return str(g[side]) if g else side
 
@@ -66,7 +66,7 @@ def _when(ts: float, now: float) -> dict[str, Any]:
     return {"at": utc, "minutes_ago": round((now - ts) / 60, 1)}
 
 
-def _settlements(conn: psycopg.Connection, run_id: int) -> dict[str, bool]:
+def settlements(conn: psycopg.Connection, run_id: int) -> dict[str, bool]:
     rows = conn.execute(
         "select game_id, (payload->>'home_won')::boolean from events"
         " where run_id = %s and kind = 'settle'",  # the feed settles each game once
@@ -94,7 +94,7 @@ def run_status(conn: psycopg.Connection, run_id: int) -> dict[str, Any]:
         ).fetchall()
     if run is None:
         raise ValueError(f"no run {run_id}")
-    board, settled = _board(conn), _settlements(conn, run_id)
+    board, settled = game_board(conn), settlements(conn, run_id)
     held: dict[tuple[str, str], dict[str, float]] = {}
     for f in fills:
         h = held.setdefault((f["game_id"], f["team"]), {"contracts": 0, "cost": 0.0})
@@ -114,8 +114,8 @@ def run_status(conn: psycopg.Connection, run_id: int) -> dict[str, Any]:
         positions.append(
             {
                 "game_id": game_id,
-                "matchup": _matchup(board, game_id),
-                "team": _team(board, game_id, side),
+                "matchup": matchup(board, game_id),
+                "team": team_name(board, game_id, side),
                 "contracts": int(h["contracts"]),
                 "net_cost": round(h["cost"], 2),  # fills plus fees, on this game and side
                 "mark": mark,
@@ -138,7 +138,7 @@ def run_status(conn: psycopg.Connection, run_id: int) -> dict[str, Any]:
         "pnl_by_game": [
             {
                 "game_id": g,
-                "matchup": _matchup(board, g),
+                "matchup": matchup(board, g),
                 "pnl": None if v is None else round(v, 2),
             }
             for g, v in game_pnl.items()
@@ -180,15 +180,15 @@ def orders(
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Newest first, each with the strategy's reason and inputs (``meta``)."""
-    board = _board(conn)
+    board = game_board(conn)
     rows = live_store.recent_orders(conn, run_id, _limit(limit, 20), game_id)
     return [
         {
             "order_id": o["id"],
             **_when(o["ts"], now),
-            "matchup": _matchup(board, o["game_id"]),
+            "matchup": matchup(board, o["game_id"]),
             "action": "buy" if o["contracts"] > 0 else "sell",
-            "team": _team(board, o["game_id"], o["team"]),
+            "team": team_name(board, o["game_id"], o["team"]),
             "contracts": abs(o["contracts"]),
             "reason": o["reason"],
             "meta": o["meta"],
@@ -205,7 +205,7 @@ def recent_plays(
     conn: psycopg.Connection, run_id: int, now: float, game_id: str, limit: int | None = None
 ) -> list[dict[str, Any]]:
     """The game's latest plays as the bot received them, newest first."""
-    board = _board(conn, run_id)
+    board = game_board(conn, run_id)
     if game_id not in board:
         raise ValueError(f"no game {game_id}; call `games` for the ids")
     g = board[game_id]
