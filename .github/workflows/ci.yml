@@ -12,6 +12,21 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nba
+          POSTGRES_PASSWORD: nba
+          POSTGRES_DB: nba
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U nba -d nba"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      # The DB tests skip when Postgres is unreachable; in CI that must be a failure.
+      NBA_REQUIRE_DB: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,3 +70,9 @@ jobs:
           uv run nba-winprob build-features
           uv run nba-winprob train-pregame --variant notebook
           uv run nba-winprob show-metrics
+
+      - name: Migrate and load Postgres from the baseline
+        run: |
+          uv run nba-winprob db migrate
+          uv run nba-winprob db load
+          uv run nba-winprob db migrate | grep -q "schema up to date"

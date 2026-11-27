@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     artifact_dir: Path = Path("artifacts")
     archive_path: Path = Path("data/datasets.zip")
 
+    # Matches docker-compose.yml; override with NBA_DATABASE_URL.
+    database_url: str = "postgresql://nba:nba@localhost:5433/nba"
+
     seed: int = 0
     test_season: int = 2023
     ingame_min_season: int = 2017

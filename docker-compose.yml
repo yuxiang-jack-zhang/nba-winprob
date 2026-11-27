@@ -1,0 +1,21 @@
+# Local Postgres for development and the DB tests: `make db-up`.
+# Port 5433 so it does not collide with a Postgres already on 5432.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: nba
+      POSTGRES_PASSWORD: nba
+      POSTGRES_DB: nba
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nba -d nba"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:
