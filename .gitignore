@@ -27,6 +27,8 @@ artifacts/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
 
 # Python
 __pycache__/

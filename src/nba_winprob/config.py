@@ -14,7 +14,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -51,6 +51,13 @@ class Settings(BaseSettings):
 
     elo_k: float = 20.0
     elo_init: float = 1500.0
+
+    # Kalshi demo API key (names fixed by the design doc, so no NBA_ prefix). The PEM
+    # lives outside the repo; demo keys only work against the demo exchange.
+    kalshi_demo_key_id: str = Field(default="", validation_alias="KALSHI_DEMO_KEY_ID")
+    kalshi_demo_private_key_path: Path | None = Field(
+        default=None, validation_alias="KALSHI_DEMO_PRIVATE_KEY_PATH"
+    )
 
     @field_validator("data_dir", "artifact_dir", "archive_path", mode="after")
     @classmethod
