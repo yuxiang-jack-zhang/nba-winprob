@@ -157,3 +157,39 @@ planned model phase asks whether any in-game feature predicts outcomes *beyond t
 price*. Any later strategy is costed with maker (resting) orders as well as taker orders,
 since a 10% round-trip cost rules out small edges. **Revisit if:** sub-minute data becomes
 available. Reacting within seconds of a run was never tested here.
+
+## D14. In-game model result: nothing beyond the price — 2026-11-27
+**Context:** phase 3, pre-registered (`docs/superpowers/specs/2026-11-27-ingame-model-prereg.md`).
+**Finding:** the raw Kalshi mid out-forecasts every model, including logistic recalibration
+of itself; in-game features make forecasts worse (RESULTS.md section 8). Price-move models
+never clear costs. Walk-forward cuts are moved to day boundaries so no model trains on a game
+from a test game's date. Gradient boosting's built-in early stopping holds out snapshots, not
+games, which is a likely cause of its overfitting; noted, not fixed, since fixing it after
+seeing the result would be tuning. **Decision:** no in-game strategy built on these features.
+The engine and live stack stay, for strategies with a different information source.
+**Revisit if:** a new information source appears that the market might be slow to price
+(sub-minute data, lineup and injury news within the game).
+
+## D15. Live paper trading: real book, receipt time, forward-only board — 2026-11-27
+**Decision:** paper trading is `SimBroker` (latency 0) fed live quotes polled from Kalshi's
+public production book, so it fills at the next polled quote, about one poll interval
+later. Every live event is stamped with receipt time: ESPN wallclock lags the Kalshi quotes
+already processed, and decisions can only happen once data arrives. The runner never
+re-sorts a poll. `game_state` only moves forward in game time, so a late-inserted play cannot
+roll the board back. Broker refusals become `rejected` orders, not crashes. Every stop
+(Ctrl-C, `data/live/STOP`, a time limit, a crash) closes the run with its reason and cancels
+unfilled orders. The CLI offers `paper` and `demo` only; no code path places real-money
+orders. **Limits:** postponed games never settle (the feed emits no `Settle`), and ESPN
+corrections to plays already emitted are not re-sent.
+
+## D16. Kalshi demo broker: V2 orders, reduce-only sells, a host guard — 2026-11-27
+**Context:** Kalshi retired `POST /portfolio/orders` (410 Gone) for V2 single-book orders,
+and now issues Ed25519 API keys by default.
+**Decision:** orders go to `POST /portfolio/events/orders` as immediate-or-cancel limit
+orders priced to cross (`bid` at the YES ask to buy home, `ask` at the YES bid to buy away),
+with sells `reduce_only` so they can never open the other side. Both Ed25519 and RSA-PSS
+signing are supported. The client refuses any host but Kalshi's two demo hosts unless
+`allow_live=True`, which nothing passes. The transport never retries, since a resent POST can
+double an order. The demo exchange lists the same NBA tickers as production, but its books
+are fake and thin, so it rehearses the order path only. **Revisit if:** phase 5 (real orders)
+starts: that needs its own caps, kill switch and an explicit decision by Jack.

@@ -6,7 +6,7 @@ Everything here is produced by `nba-winprob build-features` and
 
 Status: the **pregame** half is ported and reproduced, a Kalshi paper-trade
 backtest of injury and fatigue features is in [section 6](#6-paper-trading-against-kalshi-do-injury-and-fatigue-features-help),
-and the pre-registered in-game run-reversal backtest is in [section 7](#7-in-game-does-the-kalshi-price-overreact-to-scoring-runs). The class project's **in-game model**
+the pre-registered in-game run-reversal backtest is in [section 7](#7-in-game-does-the-kalshi-price-overreact-to-scoring-runs), and the in-game model in [section 8](#8-in-game-does-anything-predict-the-outcome-beyond-the-kalshi-price). The class project's **in-game model**
 (logistic + Monte Carlo hybrid over 3.2M possessions) is not yet ported — see
 [Not done yet](#not-done-yet).
 
@@ -312,6 +312,44 @@ price move just to break even.
 - The cost structure is the binding constraint. Any in-game strategy here must
   either find moves well over 10% of the stake or cut costs: resting limit orders
   instead of crossing the spread, and fewer, larger-edge trades.
+
+## 8. In-game: does anything predict the outcome beyond the Kalshi price?
+
+The follow-up to section 7, also pre-registered: the features, models and
+evaluation were committed in
+[a prereg](docs/superpowers/specs/2026-11-27-ingame-model-prereg.md) before any
+result was computed. 177,385 one-minute snapshots from 1,569 games, using only
+plays at least 30 s older than each price (the assumed feed lag). Walk-forward by
+game date: train on earlier games, test on the next 15%, four times. Intervals
+resample games.
+
+**Who wins** (104,311 test snapshots, lower is better):
+
+| Forecast | Log-loss | Brier |
+|---|---|---|
+| **Kalshi mid, as is** | **0.48739** | **0.16143** |
+| Logistic recalibration of the mid | 0.48994 | 0.16197 |
+| Logistic: mid + margin, time, runs, timeouts, pregame price, price momentum | 0.49189 | 0.16264 |
+| Gradient boosting, same features | 0.58384 | 0.19023 |
+
+Adding in-game features makes the forecast **worse** than the raw price: +0.0045
+log-loss, 95% CI [+0.0017, +0.0071]. No split (half, close vs not close) shows
+a gain. Gradient boosting overfits badly, most likely by memorising past games
+through near-unique pregame prices, since the effective sample is games, not
+snapshots.
+
+**The next 3 minutes of price:** a ridge model explains 0.1% of the variance. Its
+largest predicted move is 1.6¢, while a taker round trip costs 3.6¢ on average,
+so it never trades. Gradient boosting's larger predictions are noise and lose
+3.1¢ per contract after costs (CI [−4.5¢, −1.7¢]).
+
+**Reading:** at one-minute resolution, Kalshi's in-game NBA price already
+contains the score, the clock, runs, timeouts and the pregame line. What is left
+is far smaller than the cost of trading. Kalshi's NBA game markets also charge
+**maker** fees (`quadratic_with_maker_fees`, apparently 0.0175·C·P·(1−P) per
+filled resting order versus 0.07 for takers; coefficient not yet confirmed from
+the official PDF). Resting orders cut costs by roughly 4×, but they do not
+create an edge where these models find none.
 
 ## Not done yet
 
