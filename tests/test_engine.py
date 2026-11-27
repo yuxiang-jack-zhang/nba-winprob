@@ -218,7 +218,7 @@ def test_end_to_end_pnl_by_hand() -> None:
     strategy = Scripted(
         {
             a_entry: buy("home", 20, timeout=True),
-            a_exit: [("home", -20, "exit", {})],
+            a_exit: [("home", -20, "exit", {"timeout": False})],
             b_entry: buy("away", 10, timeout=False),
         }
     )
@@ -233,6 +233,9 @@ def test_end_to_end_pnl_by_hand() -> None:
     assert trades["exit_reason"].to_dict() == {"A": "exit", "B": "settle"}
     assert trades["reason"].to_dict() == {"A": "entry", "B": "entry"}
     assert trades["timeout"].to_dict() == {"A": True, "B": False}
+    # The closing order's meta rides along prefixed, e.g. facts known only at exit time.
+    assert trades.loc["A", "exit_timeout"] is False
+    assert pd.isna(trades.loc["B", "exit_timeout"])  # settled, no closing order
     assert trades["staked"].to_dict() == pytest.approx({"A": 8.0, "B": 3.0})
     assert trades.loc["A", ["entry_ts", "exit_ts"]].tolist() == [60, 180]
 

@@ -49,8 +49,9 @@ def _round_trips(broker: SimBroker) -> pd.DataFrame:
     """A round trip runs from a flat position in (game, team) back to flat or settlement.
 
     It carries the opening order's ``reason`` and ``meta`` (the decision being evaluated)
-    and the ``exit_reason`` of whatever flattened it. ``staked`` is dollars paid for
-    contracts, before fees, matching ``papertrade``'s stake.
+    and the ``exit_reason`` of whatever flattened it, plus the closing order's meta as
+    ``exit_<key>`` (facts only known at exit, such as a timeout after the trigger).
+    ``staked`` is dollars paid for contracts, before fees, matching ``papertrade``'s stake.
     """
     trips: dict[tuple[str, Side], dict[str, Any]] = {}
     rows = []
@@ -77,7 +78,10 @@ def _round_trips(broker: SimBroker) -> pd.DataFrame:
         trip["fees"] += fill.fee
         trip["pnl"] -= fill.price * o.contracts + fill.fee
         if trip["held"] == 0:
-            rows.append({**trips.pop(key), "exit_ts": fill.ts, "exit_reason": o.reason})
+            exit_meta = {f"exit_{k}": v for k, v in o.meta.items()}
+            rows.append(
+                {**trips.pop(key), **exit_meta, "exit_ts": fill.ts, "exit_reason": o.reason}
+            )
     # Settlement is a game's last event, so it follows every fill of that game.
     for settle, team, held in broker.payouts:
         trip = trips.pop((settle.game_id, team))
