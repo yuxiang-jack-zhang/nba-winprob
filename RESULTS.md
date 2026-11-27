@@ -4,7 +4,8 @@ Everything here is produced by `nba-winprob build-features` and
 `nba-winprob train-pregame`, seeded and reproducible. Numbers are on the held-out
 **2023 season** (1,227 games), which no model trains on.
 
-Status: the **pregame** half is ported and reproduced. The **in-game** half
+Status: the **pregame** half is ported and reproduced, and a Kalshi paper-trade
+backtest of injury and fatigue features is in [section 6](#6-paper-trading-against-kalshi-do-injury-and-fatigue-features-help). The **in-game** half
 (logistic + Monte Carlo hybrid over 3.2M possessions) is not yet ported — see
 [Not done yet](#not-done-yet).
 
@@ -170,6 +171,86 @@ a pregame feature could leak. Run over 40 sampled games, plus:
 **Mutation-checked.** Removing the `.shift()` that makes `season_winrate`
 leak-free causes the test to fail on **10 out of 10** sampled games. A leakage
 test that has never been shown to fail is not evidence.
+
+## 6. Paper trading against Kalshi: do injury and fatigue features help?
+
+A backtest, not live trading: `papertrade/backtest.py` replays **1,559 settled
+Kalshi NBA game markets** (April 2025 – November 2026) at the last one-minute
+quote before tip-off, crossing the spread and paying the taker fee. No orders
+were placed. Every game is predicted by a model fitted only on earlier games
+(refits at 2025-04-15, 2025-10-01 and 2026-10-01).
+
+Two model families, each fitted with and without the new feature blocks:
+
+- **Lean** — logistic regression on carry-over Elo, win rates and recent margin.
+- **XGBoost** — this project's recipe (`xgb_feature_columns`, `xgb_params`, the
+  corrected feature pipeline) **retrained on ESPN data**. The saved artifact
+  cannot be used: its inputs come from a Kaggle archive that stops in 2024.
+  Shot zones are by distance from ESPN coordinates, so the features match the
+  originals in spirit, not value for value. Its own rest and back-to-back
+  columns are removed from "base" so rest enters only through the fatigue block.
+
+The blocks: **fatigue** is rest days, back-to-back, and games in the last 7 and
+14 days; **injury** is the share of a team's usual minutes (previous 10 games)
+held by players who did not play.
+
+### Forecast quality
+
+Change in log-loss against each family's own base, paired by game, with 95%
+bootstrap intervals. Negative is better.
+
+| Added | Lean | XGBoost |
+|---|---|---|
+| Fatigue | +0.0006 [−0.0039, +0.0053] | +0.0007 [−0.0014, +0.0028] |
+| Injury | **−0.0059 [−0.0111, −0.0005]** | **−0.0036 [−0.0070, −0.0003]** |
+| Both | −0.0052 [−0.0119, +0.0018] | −0.0026 [−0.0065, +0.0012] |
+
+**Injury features help; fatigue features do not.** The injury gain is
+significant in both families. Fatigue adds nothing on its own and dilutes the
+injury gain enough that the combined block is no longer significant.
+
+### Against the market
+
+Flat $100 on a side whenever the model beats cost plus fee by 3 cents.
+
+| | Log-loss | Bets | P&L | ROI | 95% CI of P&L |
+|---|---|---|---|---|---|
+| Kalshi mid | **0.5747** | | | | |
+| Lean base | 0.6022 | 956 | −$14,346 | −15.0% | [−23,114, −5,614] |
+| Lean + injury | 0.5963 | 912 | −$12,519 | −13.7% | [−21,485, −3,547] |
+| Lean + both | 0.5970 | 899 | −$8,886 | −9.9% | [−17,478, +190] |
+| XGBoost base | 0.6287 | 1,185 | −$14,612 | −12.3% | [−25,646, −3,094] |
+| XGBoost + both | 0.6261 | 1,166 | −$16,331 | −14.0% | [−27,471, −4,674] |
+
+**No model beats the market, and every one loses money.** The market is 0.02
+log-loss ahead of the best model. It already prices injuries: the gap between
+Kalshi's price and the lean base model correlates −0.48 with the injury feature,
+so the feature moves the model toward the market rather than past it. The lean
+logistic model beats the XGBoost recipe throughout, consistent with section 4.
+
+### Playoffs
+
+Over 173 playoff and play-in games the lean model out-forecast the market
+(0.643 vs 0.654) and made about +$2,200, but the interval is [−$1,100, +$5,700].
+Suggestive, not a result.
+
+The 2026 Finals (Knicks beat Spurs 4–1) had the textbook fatigue setup in Game 1:
+Spurs on 4 days' rest with 6 games in 14 days, Knicks on 9 days' rest with 3.
+The models profited (+$523 for lean + both) by fading the Spurs at home, where
+the market had them at 63–68% and they lost all three. **The fatigue features
+were not the reason.** The base model already rated the teams closer than the
+market, and the new blocks moved the Spurs' probability *up* in Games 1 and 2
+because the Knicks had more minutes missing. Five games cannot settle it.
+
+### Caveats
+
+- **Hindsight in the injury feature.** It uses who actually sat, so a
+  last-minute scratch counts as known. The pre-tip quote limits this, but the
+  injury models still have a slight edge a live trader would not.
+- 51 games have no ESPN box score and are treated as "no injury information";
+  53 matched Kalshi games are dropped for lack of team history.
+- The fee is per contract without Kalshi's round-up to a cent per order.
+- Fills are assumed at the quoted price for $100; no depth or slippage.
 
 ## Not done yet
 

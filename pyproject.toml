@@ -45,6 +45,13 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# The backtest prints wide aligned report rows; wrapping them hurts more than it helps.
+"papertrade/*" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["nba_winprob", "backtest", "fetch"]
+
 [tool.mypy]
 python_version = "3.12"
 files = ["src"]
@@ -58,7 +65,8 @@ module = ["xgboost.*", "sklearn.*", "joblib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# papertrade/ holds its own tests next to the scripts they check.
+testpaths = ["tests", "papertrade"]
 markers = [
   "slow: needs the full Kaggle archive or a multi-minute ETL run",
 ]
