@@ -298,6 +298,19 @@ def ingame_backtest() -> None:
     typer.echo(f"saved {path}", err=True)
 
 
+@ingame_app.command("model")
+def ingame_model() -> None:
+    """Run the pre-registered phase 3 model evaluation; print and save the report."""
+    from nba_winprob.ingame.model import report
+
+    settings = get_settings()
+    text = report(settings, progress=lambda m: typer.echo(m, err=True))
+    path = settings.ingame_dir / "report_model.md"
+    path.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+    typer.echo(f"saved {path}", err=True)
+
+
 @app.command("show-metrics")
 def show_metrics() -> None:
     """Print a table of every artifact's test metrics, newest config last."""
