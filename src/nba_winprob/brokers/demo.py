@@ -68,7 +68,11 @@ class DemoBroker:
             # shortcut: a timed-out POST may still have placed the order; its fills are then
             # ignored (unknown order_id). Reconcile by client_order_id before real money.
             self._reject(order, str(err))
-        if float(resp.get("fill_count", 1)) == 0:  # immediate-or-cancel: nothing filled
+        # CreateOrderV2Response (docs.kalshi.com): fill_count is required, e.g. "0.00".
+        filled = resp.get("fill_count")
+        if filled is None:  # not per the docs: track it as pending and let fills decide
+            log.warning("order response without fill_count: %s", resp)
+        elif float(filled) == 0:  # immediate-or-cancel: the rest was cancelled at once
             self._reject(order, "immediate-or-cancel order filled nothing")
         self._orders[resp["order_id"]] = order
 
@@ -80,6 +84,8 @@ class DemoBroker:
         if isinstance(event, Quote):
             self._quotes[event.game_id] = event
         elif isinstance(event, Settle):
+            # shortcut: _orders keeps the game's orders, so a fill reported after Settle
+            # re-adds a position for a finished game; rare with IOC orders, fine for demo.
             teams: tuple[Side, Side] = ("home", "away")
             for team in teams:
                 self.positions.pop((event.game_id, team), None)

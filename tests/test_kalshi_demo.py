@@ -37,8 +37,17 @@ class FakeExchange:
         if method == "POST":
             if self.order_error:
                 raise KalshiError(self.order_error)
-            filled = "0.00" if self.fill_nothing else self.orders[-1].get("count", "1")
-            return {"order_id": f"oid{len(self.orders) - 1}", "fill_count": filled}
+            body = self.orders[-1]
+            count = body.get("count", "1")
+            filled = "0.00" if self.fill_nothing else f"{float(count):.2f}"
+            # The documented CreateOrderV2Response: top level, counts as fixed-point strings.
+            return {
+                "order_id": f"oid{len(self.orders) - 1}",
+                "client_order_id": body.get("client_order_id", ""),
+                "fill_count": filled,
+                "remaining_count": f"{float(count) - float(filled):.2f}",
+                "ts_ms": int(NOW * 1000),
+            }
         if self.get_error:
             raise KalshiError(self.get_error)
         return {"fills": self.fills, "cursor": ""}
@@ -207,6 +216,20 @@ def test_an_ioc_order_that_fills_nothing_is_a_rejection() -> None:
     broker.process(quote())
     with pytest.raises(ValueError, match="filled nothing"):
         broker.submit(order("home", 5))
+
+
+def test_a_response_without_fill_count_stays_pending_for_fills_to_settle() -> None:
+    class Undocumented(FakeExchange):
+        def __call__(self, method: str, url: str, headers: Mapping[str, str], body: Any) -> Any:
+            resp = super().__call__(method, url, headers, body)
+            return {"order_id": resp["order_id"]} if method == "POST" else resp
+
+    exchange, clock = Undocumented(), Clock()
+    broker = DemoBroker(client(exchange), poll_every_s=0, clock=clock)
+    broker.process(quote())
+    broker.submit(order("home", 10))  # not rejected: it may have filled
+    exchange.fills = [raw_fill("oid0", "10.00", "0.4500")]
+    assert [f.order.contracts for f in broker.process(quote())] == [10]
 
 
 def test_a_failed_fills_poll_is_retried_not_raised() -> None:
