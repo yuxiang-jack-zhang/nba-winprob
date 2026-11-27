@@ -244,6 +244,47 @@ def db_load() -> None:
     typer.echo(", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
+ingame_app = typer.Typer(no_args_is_help=True, help="In-game history: ESPN plays, Kalshi candles.")
+app.add_typer(ingame_app, name="ingame")
+
+
+@ingame_app.command("fetch")
+def ingame_fetch(
+    limit: Annotated[int | None, typer.Option(help="Only the first N games.")] = None,
+) -> None:
+    """Fetch and cache plays and candles for every Kalshi-matched game. Resumable."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from nba_winprob.ingame.history import game_index
+    from nba_winprob.sources import espn, kalshi
+
+    settings = get_settings()
+    games = game_index(settings).iloc[:limit]
+    espn_dir, kalshi_dir = settings.ingame_dir / "espn", settings.ingame_dir / "kalshi"
+
+    def fetch(game: pd.Series) -> list[str]:
+        failures = []
+        try:
+            espn.summary(game.game_id, espn_dir)
+        except Exception as err:  # one bad game must not stop the other 1,600
+            failures.append(f"espn {game.game_id}: {err}")
+        try:
+            kalshi.candles(game.ticker, game.historical, game.tip_ts, kalshi_dir)
+        except Exception as err:
+            failures.append(f"kalshi {game.ticker}: {err}")
+        return failures
+
+    with ThreadPoolExecutor(6) as pool:
+        failures = [f for fs in pool.map(fetch, (g for _, g in games.iterrows())) for f in fs]
+    for failure in failures:
+        typer.echo(failure)
+    n_espn = sum(f.startswith("espn") for f in failures)
+    typer.echo(
+        f"{len(games)} games: espn {len(games) - n_espn} cached, "
+        f"kalshi {len(games) - (len(failures) - n_espn)} cached, {len(failures)} failures"
+    )
+
+
 @app.command("show-metrics")
 def show_metrics() -> None:
     """Print a table of every artifact's test metrics, newest config last."""

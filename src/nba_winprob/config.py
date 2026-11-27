@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     def processed_dir(self) -> Path:
         return self.data_dir / "processed"
 
+    # Raw ESPN summaries and Kalshi candles per game, for the in-game backtest.
+    @property
+    def ingame_dir(self) -> Path:
+        return self.data_dir / "ingame"
+
     def ensure_dirs(self) -> None:
         """Create every directory this package writes to."""
         for path in (
