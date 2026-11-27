@@ -237,10 +237,19 @@ def db_migrate() -> None:
 @db_app.command("load")
 def db_load() -> None:
     """Load the baseline tables, then build and store both feature variants from the DB."""
+    import psycopg
+
     from nba_winprob.db import store
 
-    with store.connect(get_settings()) as conn:
-        counts = store.load_baseline(conn, get_settings())
+    try:
+        with store.connect(get_settings()) as conn:
+            counts = store.load_baseline(conn, get_settings())
+    except psycopg.OperationalError as exc:
+        typer.secho(f"can't reach Postgres ({exc}); start it with `make db-up`", fg="red", err=True)
+        raise typer.Exit(1) from exc
+    except psycopg.errors.UndefinedTable as exc:
+        typer.secho(f"{exc}; run `nba-winprob db migrate` first", fg="red", err=True)
+        raise typer.Exit(1) from exc
     typer.echo(", ".join(f"{k}={v}" for k, v in counts.items()))
 
 

@@ -221,3 +221,132 @@ def test_stored_features_equal_the_csv_build(
         want.sort_values("gameId").reset_index(drop=True),
         check_exact=True,
     )
+
+
+def _small_baseline(
+    tmp_path: Path, settings: Settings, raw: tuple[pd.DataFrame, pd.DataFrame], n_games: int = 40
+) -> Settings:
+    """Settings whose baseline is the first ``n_games`` played games of the real one."""
+    games, team_games = _sample(raw, n_games)
+    (tmp_path / "baseline").mkdir()
+    games.to_csv(tmp_path / "baseline" / "games.csv", index=False)
+    team_games.to_csv(tmp_path / "baseline" / "team_games.csv", index=False)
+    return settings.model_copy(update={"data_dir": tmp_path})
+
+
+def test_load_is_one_transaction(
+    empty_db: psycopg.Connection,
+    raw_tables: tuple[pd.DataFrame, pd.DataFrame],
+    settings: Settings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failure building the second variant leaves nothing from the first, or the CSVs."""
+    migrate.apply_migrations(empty_db)
+    small = _small_baseline(tmp_path, settings, raw_tables)
+
+    def fail_on_corrected(
+        games: pd.DataFrame, team_games: pd.DataFrame, *, k: float, init: float, variant: str
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        if variant == "corrected":
+            raise ValueError("NaN in corrected features")
+        return build_pregame_master(games, team_games, k=k, init=init, variant="notebook")
+
+    monkeypatch.setattr(store, "build_pregame_master", fail_on_corrected)
+    with pytest.raises(ValueError, match="NaN"):
+        store.load_baseline(empty_db, small)
+    for table in ("games", "team_games", "pregame_features"):
+        assert _count(empty_db, table) == 0
+
+
+def test_load_works_without_autocommit_and_a_rerun_changes_nothing(
+    db: psycopg.Connection,
+    raw_tables: tuple[pd.DataFrame, pd.DataFrame],
+    settings: Settings,
+    tmp_path: Path,
+) -> None:
+    small = _small_baseline(tmp_path, settings, raw_tables)
+    url = make_conninfo(settings.database_url, dbname=db.info.dbname)
+    with psycopg.connect(url) as conn:  # autocommit off: inner transactions are savepoints
+        first = store.load_baseline(conn, small)
+    assert (
+        first["features_notebook"]
+        == first["features_corrected"]
+        == _count(db, "pregame_features where variant = 'notebook'")
+        > 0
+    )
+    stamped = db.execute("select max(built_at) from pregame_features").fetchone()
+
+    again = store.load_baseline(db, small)
+    assert again == {**first, "features_notebook": 0, "features_corrected": 0}
+    assert db.execute("select max(built_at) from pregame_features").fetchone() == stamped
+
+
+def test_rebuilt_features_drop_games_no_longer_built(
+    db: psycopg.Connection, raw_tables: tuple[pd.DataFrame, pd.DataFrame], settings: Settings
+) -> None:
+    games, team_games = _sample(raw_tables, 40)
+    store.upsert_base_tables(db, games, team_games)
+    _, master = build_pregame_master(
+        *clean_base_tables(*store.read_base_tables(db)),
+        k=settings.elo_k,
+        init=settings.elo_init,
+        variant="notebook",
+    )
+    store.write_features(db, master, "notebook")
+    store.write_features(db, master, "corrected")
+    store.write_features(db, master.iloc[1:], "notebook")
+    assert _count(db, "pregame_features where variant = 'notebook'") == len(master) - 1
+    assert _count(db, "pregame_features where variant = 'corrected'") == len(master)
+
+
+def test_duplicate_keys_are_rejected_before_writing(
+    db: psycopg.Connection, raw_tables: tuple[pd.DataFrame, pd.DataFrame]
+) -> None:
+    games, team_games = _sample(raw_tables)
+    with pytest.raises(ValueError, match="duplicate"):
+        store.upsert_base_tables(db, pd.concat([games, games.head(1)]), team_games)
+    with pytest.raises(ValueError, match="duplicate"):
+        store.upsert_base_tables(db, games, pd.concat([team_games, team_games.head(1)]))
+    assert _count(db, "games") == 0
+
+
+def test_changing_a_games_teams_cannot_orphan_stored_team_games(
+    db: psycopg.Connection, raw_tables: tuple[pd.DataFrame, pd.DataFrame]
+) -> None:
+    games, team_games = _sample(raw_tables)
+    store.upsert_base_tables(db, games, team_games)
+    first = int(games["gameId"].iloc[0])
+    moved = games.copy()
+    moved.loc[moved["gameId"] == first, "homeTeamId"] = (
+        1  # its stored team_games still name the old home team
+    )
+    with pytest.raises(ValueError, match="did not play"):
+        store.upsert_base_tables(db, moved, team_games[team_games["gameId"] != first])
+    home = db.execute("select home_team_id from games where game_id = %s", [first]).fetchone()
+    assert home is not None and home[0] != 1
+
+
+@pytest.mark.parametrize("server_down", [False, True], ids=["no-schema", "no-server"])
+def test_db_load_explains_a_missing_schema_or_server(
+    empty_db: psycopg.Connection,
+    settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    server_down: bool,
+) -> None:
+    from typer.testing import CliRunner
+
+    from nba_winprob import cli
+
+    if server_down:
+        url, hint = "postgresql://nba:nba@localhost:1/nba", "make db-up"
+    else:
+        url = make_conninfo(settings.database_url, dbname=empty_db.info.dbname)  # never migrated
+        hint = "db migrate"
+    monkeypatch.setattr(
+        cli, "get_settings", lambda: settings.model_copy(update={"database_url": url})
+    )
+    result = CliRunner().invoke(cli.app, ["db", "load"])
+    assert result.exit_code == 1
+    assert hint in result.output
+    assert "Traceback" not in result.output
