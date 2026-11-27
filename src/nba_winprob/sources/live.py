@@ -18,6 +18,12 @@ does every play emitted after it. Limitation: plays emitted earlier are not re-s
 their scores stay as they were when emitted.
 
 A failed fetch is logged and retried next poll; one game's bad data never stops another.
+
+**No quote until a game's plays have been caught up.** The first successful play fetch
+replays the whole backlog at once, all stamped ``now``; a run long over in game time can
+look like a fresh trigger while it streams through. Quotes for a game start the poll after
+that catch-up, so no strategy has a price to act on backlog plays. A game whose first
+fetch fails stays quote-less until a fetch succeeds.
 """
 
 from __future__ import annotations
@@ -52,6 +58,7 @@ class LiveFeed:
         self._games: list[espn.Game] = []
         self._board_at = float("-inf")
         self._emitted: dict[str, set[int]] = {}  # games seen in progress -> play seqs emitted
+        self._caught_up: set[str] = set()  # games whose play backlog went out in an earlier poll
         self._ended: set[str] = set()  # End Game emitted: later quotes are not tradeable
         self._done: set[str] = set()
 
@@ -73,8 +80,10 @@ class LiveFeed:
             gid = game.game_id
             if gid in self._done or (game.state != "in" and gid not in self._emitted):
                 continue
-            events += self._new_plays(gid, now)
-            if game.state == "in" and gid not in self._ended:
+            caught_up = gid in self._caught_up
+            plays = self._new_plays(gid, now)
+            events += plays
+            if game.state == "in" and gid not in self._ended and caught_up:
                 ticker = kalshi.kalshi_ticker(game.tip_utc, game.away, game.home)
                 try:
                     quote = self._quote(ticker, gid, now)
@@ -99,6 +108,7 @@ class LiveFeed:
         except Exception:
             log.exception("summary %s failed", gid)
             return []
+        self._caught_up.add(gid)  # quotes may follow from the next poll on
         new = [replace(p, ts=now) for p in plays if p.seq not in emitted]
         emitted.update(p.seq for p in new)
         if any(p.kind == "end_game" for p in new):

@@ -157,19 +157,22 @@ class Fake:
 
 def test_plays_stamped_on_receipt_in_replay_order_then_quote(summary: dict[str, Any]) -> None:
     fake = Fake(upto(summary, 12))
-    events = fake.feed().poll(1000.0)
+    feed = fake.feed()
+    events = feed.poll(1000.0)
     expected = parse_plays(upto(summary, 12), GAME_ID, check_final=False)
-    assert [e.seq for e in events[:-1] if isinstance(e, Play)] == [p.seq for p in expected]
+    assert [e.seq for e in events if isinstance(e, Play)] == [p.seq for p in expected]
     assert all(e.ts == 1000.0 for e in events)
-    assert events[-1] == Quote(1000.0, GAME_ID, TICKER, 0.40, 0.42, 0)
-    assert len(events) == 13
-    assert f"quote {TICKER}" in fake.calls
+    assert len(events) == 12  # the backlog, with no quote to trade it on
+    fake.summary = upto(summary, 13)
+    events = feed.poll(1005.0)
+    assert [type(e) for e in events] == [Play, Quote]  # new plays first, then the quote
+    assert events[-1] == Quote(1005.0, GAME_ID, TICKER, 0.40, 0.42, 0)
 
 
 def test_plays_are_emitted_once_across_polls(summary: dict[str, Any]) -> None:
     fake = Fake(upto(summary, 10))
     feed = fake.feed()
-    assert len(feed.poll(0.0)) == 11
+    assert len(feed.poll(0.0)) == 10  # backlog only
     assert [type(e) for e in feed.poll(5.0)] == [Quote]
     fake.summary = upto(summary, 15)
     events = feed.poll(10.0)
@@ -231,12 +234,13 @@ def test_games_not_seen_in_progress_are_ignored(summary: dict[str, Any]) -> None
     assert fake.calls == ["scoreboard"]
 
 
-def test_failed_fetch_skips_only_that_part_and_retries(summary: dict[str, Any]) -> None:
-    fake = Fake(None)
+def test_no_quote_until_the_play_backlog_has_gone_out(summary: dict[str, Any]) -> None:
+    fake = Fake(None)  # the first play fetch fails
     feed = fake.feed()
-    assert [type(e) for e in feed.poll(0.0)] == [Quote]
+    assert feed.poll(0.0) == []  # a quote alone would let the backlog trade next poll
     fake.summary = upto(summary, 5)
-    assert len([e for e in feed.poll(5.0) if isinstance(e, Play)]) == 5
+    assert [type(e) for e in feed.poll(5.0)] == [Play] * 5  # the backlog, still no quote
+    assert [type(e) for e in feed.poll(10.0)] == [Quote]
 
 
 def test_scoreboard_refreshed_at_most_every_minute(summary: dict[str, Any]) -> None:
