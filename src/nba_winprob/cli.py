@@ -285,6 +285,19 @@ def ingame_fetch(
     )
 
 
+@ingame_app.command("backtest")
+def ingame_backtest() -> None:
+    """Run the pre-registered RunReversal v1 backtest; print and save the report."""
+    from nba_winprob.ingame.report import report
+
+    settings = get_settings()
+    text = report(settings, progress=lambda m: typer.echo(m, err=True))
+    path = settings.ingame_dir / "report_v1.md"
+    path.write_text(text + "\n", encoding="utf-8")
+    typer.echo(text)
+    typer.echo(f"saved {path}", err=True)
+
+
 @app.command("show-metrics")
 def show_metrics() -> None:
     """Print a table of every artifact's test metrics, newest config last."""

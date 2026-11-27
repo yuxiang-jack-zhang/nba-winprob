@@ -23,12 +23,13 @@ class RunReversalParams:
     min_run_net: int = 10
     max_run_net: int = 15
     max_margin: int = 9
-    min_seconds_left: float = 120  # no entries at or under 2:00 left; exit at 2:00 left
+    min_seconds_left: float = 120  # no entries at or under 2:00 left
     stake: float = 100  # dollars per entry
     rearm_below: int = 5
     take_profit: float = 0.05
     max_hold_s: float = 360  # game seconds
     timeout_after_s: float = 30  # wallclock seconds after the trigger
+    exit_seconds_left: float = 120  # flatten at 2:00 left; -inf holds to settlement
 
 
 V1 = RunReversalParams()
@@ -150,7 +151,7 @@ class RunReversal:
             kind, why = "take_profit", "take profit:"
         elif held_s >= p.max_hold_s:
             kind, why = "time_stop", f"time stop: {_mmss(held_s)} of game clock since entry;"
-        elif t.seconds_left <= p.min_seconds_left:
+        elif t.seconds_left <= p.exit_seconds_left:
             kind, why = "late_game", f"late game: {_mmss(t.clock)} left in {_period(t.period)};"
         else:
             return []

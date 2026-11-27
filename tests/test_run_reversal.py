@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 
 import pytest
 
 from nba_winprob.engine.events import Event, Fill, Order, Play, Quote, Side
-from nba_winprob.strategies.run_reversal import RunReversal
+from nba_winprob.strategies.run_reversal import RunReversal, RunReversalParams
 
 T0 = 100_000.0  # wallclock of tip-off; plays default to ts = T0 + game seconds elapsed
 G = "g"
@@ -291,6 +292,16 @@ def test_late_game_exit_at_two_minutes_left() -> None:
     [exit_] = h.send(g.play(2760))
     assert exit_.meta["kind"] == "late_game"
     assert exit_.reason == "late game: 2:00 left in Q4; mid 0.41 vs entry 0.42"
+
+
+def test_hold_variant_never_exits_but_keeps_the_entry_cutoff() -> None:
+    h = Harness()
+    h.s = RunReversal(
+        RunReversalParams(take_profit=math.inf, max_hold_s=math.inf, exit_seconds_left=-math.inf)
+    )
+    g, entry = enter(h, end_e=2600)
+    h.fill(entry, 0.42)
+    assert h.send(g.quote(T0 + 2700, 0.90, 0.92), g.play(2700 + 360), g.play(2879)) == []
 
 
 def test_no_exit_before_the_entry_fills_and_no_exit_spam() -> None:
