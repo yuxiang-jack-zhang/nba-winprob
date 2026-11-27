@@ -8,9 +8,7 @@ suite that silently skips proves nothing.
 
 from __future__ import annotations
 
-import os
 import threading
-import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -28,38 +26,7 @@ from nba_winprob.data.pregame_features import (
     read_base_csvs,
 )
 from nba_winprob.db import migrate, store
-from tests.conftest import require_baseline
-
-
-def _create_database(settings: Settings) -> Iterator[psycopg.Connection]:
-    try:
-        admin = psycopg.connect(settings.database_url, autocommit=True, connect_timeout=3)
-    except psycopg.OperationalError as exc:
-        message = f"no Postgres at NBA_DATABASE_URL ({exc}); start it with `make db-up`"
-        if os.environ.get("NBA_REQUIRE_DB") == "1":
-            pytest.fail(message)
-        pytest.skip(message)
-    name = f"nba_test_{uuid.uuid4().hex[:12]}"
-    admin.execute(f'create database "{name}"')
-    try:
-        with psycopg.connect(
-            make_conninfo(settings.database_url, dbname=name), autocommit=True
-        ) as conn:
-            yield conn
-    finally:
-        admin.execute(f'drop database "{name}" with (force)')
-        admin.close()
-
-
-@pytest.fixture
-def empty_db(settings: Settings) -> Iterator[psycopg.Connection]:
-    yield from _create_database(settings)
-
-
-@pytest.fixture
-def db(empty_db: psycopg.Connection) -> psycopg.Connection:
-    migrate.apply_migrations(empty_db)
-    return empty_db
+from tests.conftest import create_database, require_baseline
 
 
 @pytest.fixture(scope="session")
@@ -67,7 +34,7 @@ def loaded_db(settings: Settings) -> Iterator[psycopg.Connection]:
     """One database with the full baseline loaded, shared by the read-only tests."""
     require_baseline(settings.baseline_dir / "games.csv")
     require_baseline(settings.baseline_dir / "team_games.csv")
-    for conn in _create_database(settings):
+    for conn in create_database(settings):
         migrate.apply_migrations(conn)
         store.load_baseline(conn, settings)
         yield conn
