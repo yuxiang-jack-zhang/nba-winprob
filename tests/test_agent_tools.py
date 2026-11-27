@@ -8,6 +8,8 @@ import psycopg
 import pytest
 
 from nba_winprob.agent import tools
+from nba_winprob.db import live_store
+from nba_winprob.engine.events import Fill, Order, kalshi_taker_fee
 from tests import agent_scenario as sc
 
 
@@ -37,6 +39,11 @@ def test_run_status_marks_positions_and_totals_pnl(db: psycopg.Connection, run: 
     assert (by_team["DEN"]["mark"], by_team["DEN"]["state"]) == (0.0, "lost")
     assert status["fees_paid"] == pytest.approx(sc.FEE_NY + sc.FEE_DEN)
     assert status["pnl"] == pytest.approx(sc.PNL)
+    by_game = {g["matchup"]: g["pnl"] for g in status["pnl_by_game"]}
+    assert by_game == {
+        "MIA @ NY": pytest.approx(88.0 - 80.0 - sc.FEE_NY),
+        "DEN @ BOS": pytest.approx(-45.0 - sc.FEE_DEN),
+    }
     assert pytest.approx(-42.57) == sc.PNL
 
 
@@ -45,6 +52,21 @@ def test_an_away_position_is_marked_at_one_minus_the_ask(db: psycopg.Connection)
     assert tools._mark(game, "away", None) == pytest.approx(0.54)
     assert tools._mark(game, "away", False) == 1.0  # settled: away won
     assert tools._mark({"yes_bid": None, "yes_ask": None}, "home", None) is None
+
+
+def test_a_closed_round_trip_keeps_its_pnl(db: psycopg.Connection, run: int) -> None:
+    order = Order(sc.T0 + 3550, sc.NYK, "home", -200, "take profit")
+    order_id = live_store.record_order(db, run, order)
+    fee = kalshi_taker_fee(0.44, 200)
+    live_store.record_fill(db, order_id, Fill(order, sc.T0 + 3555, 0.44, fee))
+    status = tools.run_status(db, run)
+    assert [p["team"] for p in status["positions"]] == ["DEN"]  # NY is flat now
+    by_game = {g["matchup"]: g["pnl"] for g in status["pnl_by_game"]}
+    assert by_game["MIA @ NY"] == pytest.approx(88.0 - 80.0 - sc.FEE_NY - fee)
+    assert status["pnl"] == pytest.approx(sc.PNL - fee)
+    # A flat position needs no price: its P&L stays known when the book disappears.
+    db.execute("update game_state set yes_bid = null, yes_ask = null where game_id = %s", [sc.NYK])
+    assert tools.run_status(db, run)["pnl"] == pytest.approx(sc.PNL - fee)
 
 
 def test_pnl_is_withheld_while_a_position_has_no_price(db: psycopg.Connection, run: int) -> None:

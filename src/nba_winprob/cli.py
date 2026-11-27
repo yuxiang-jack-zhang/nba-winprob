@@ -403,6 +403,20 @@ def agent_ask(
     typer.echo(answer.text)
 
 
+@agent_app.command("discord")
+def agent_discord() -> None:
+    """Push fills, recaps and digests to Discord, and chat there. Run beside `live run`."""
+    import logging
+
+    from nba_winprob.agent import discord_bot
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    try:
+        discord_bot.run(get_settings())
+    except ValueError as err:
+        raise typer.BadParameter(str(err)) from err
+
+
 @app.command("show-metrics")
 def show_metrics() -> None:
     """Print a table of every artifact's test metrics, newest config last."""

@@ -87,19 +87,22 @@ def run_status(conn: psycopg.Connection, run_id: int) -> dict[str, Any]:
     if run is None:
         raise ValueError(f"no run {run_id}")
     board, settled = _board(conn), _settlements(conn, run_id)
-    cash = -sum(f["contracts"] * f["price"] + f["fee"] for f in fills)
     held: dict[tuple[str, str], dict[str, float]] = {}
     for f in fills:
         h = held.setdefault((f["game_id"], f["team"]), {"contracts": 0, "cost": 0.0})
         h["contracts"] += f["contracts"]
         h["cost"] += f["contracts"] * f["price"] + f["fee"]
-    positions, value, unmarked = [], 0.0, False
+    positions = []
+    game_pnl: dict[str, float | None] = {}  # None while an open position has no price
     for (game_id, side), h in sorted(held.items()):
-        if h["contracts"] == 0:
-            continue  # closed out; its result is already in cash
         mark = _mark(board.get(game_id), side, settled.get(game_id))
-        unmarked |= mark is None
-        value += h["contracts"] * (mark or 0.0)
+        pnl = (
+            None if mark is None and h["contracts"] else h["contracts"] * (mark or 0.0) - h["cost"]
+        )
+        before = game_pnl.get(game_id, 0.0)
+        game_pnl[game_id] = None if before is None or pnl is None else before + pnl
+        if h["contracts"] == 0:
+            continue  # closed out: only its P&L remains
         positions.append(
             {
                 "game_id": game_id,
@@ -112,6 +115,8 @@ def run_status(conn: psycopg.Connection, run_id: int) -> dict[str, Any]:
                 "state": (("won" if mark == 1.0 else "lost") if game_id in settled else "open"),
             }
         )
+    values = list(game_pnl.values())
+    unmarked = None in values
     return {
         "run_id": run["id"],
         "strategy": run["strategy"],
@@ -122,7 +127,15 @@ def run_status(conn: psycopg.Connection, run_id: int) -> dict[str, Any]:
         "params": run["params"],
         "positions": positions,
         "fees_paid": round(sum(f["fee"] for f in fills), 2),
-        "pnl": None if unmarked else round(cash + value, 2),
+        "pnl_by_game": [
+            {
+                "game_id": g,
+                "matchup": _matchup(board, g),
+                "pnl": None if v is None else round(v, 2),
+            }
+            for g, v in game_pnl.items()
+        ],
+        "pnl": None if unmarked else round(sum(v for v in values if v is not None), 2),
         "pnl_note": "a position has no price yet" if unmarked else "fees included",
     }
 

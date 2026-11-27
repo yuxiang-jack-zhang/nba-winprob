@@ -67,4 +67,7 @@ def seed(conn: psycopg.Connection) -> int:
         None,
         "order at ts 1795003016 is before the last event",
     )
+    # started_at and updated_at default to now(); put them on the scenario's clock too.
+    conn.execute("update runs set started_at = to_timestamp(%s) where id = %s", [T0, run_id])
+    conn.execute("update game_state set updated_at = to_timestamp(%s)", [T0 + 3500])
     return run_id

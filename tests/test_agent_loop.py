@@ -89,3 +89,20 @@ def test_requests_offer_only_the_read_only_tools(db: psycopg.Connection) -> None
         "recent_plays",
     ]
     assert request["model"] == "claude-opus-5-5"
+
+
+def test_a_shared_history_carries_the_conversation(db: psycopg.Connection) -> None:
+    run = sc.seed(db)
+    api = Scripted(
+        reply("tool_use", tool_use("a", "run_status")),
+        reply("end_turn", NS(type="text", text="Down $42.57.")),
+        reply("end_turn", NS(type="text", text="Mostly the DEN loss.")),
+    )
+    history: list[dict[str, Any]] = []
+    ask(api, db, run, "Up or down?", now=lambda: sc.NOW, history=history)
+    answer = ask(api, db, run, "Why?", now=lambda: sc.NOW, history=history)
+    assert answer.text == "Mostly the DEN loss."
+    sent = api.requests[2]["messages"]
+    assert [m["role"] for m in sent] == ["user", "assistant", "user", "assistant", "user"]
+    assert (sent[0]["content"], sent[-1]["content"]) == ("Up or down?", "Why?")
+    assert len(history) == 6  # both exchanges, ending with the second answer

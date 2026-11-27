@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Any
 
 import psycopg
 import pytest
 
 from nba_winprob.agent.catchup import ask
+from nba_winprob.agent.notify import DISCORD_LIMIT
 from nba_winprob.config import get_settings
 from tests import agent_scenario as sc
 
@@ -77,3 +79,15 @@ def test_catchup_answer(
     missing = [p for p in must if not re.search(p, answer.text, re.IGNORECASE)]
     wrong = [p for p in must_not if re.search(p, answer.text, re.IGNORECASE)]
     assert not missing and not wrong, f"missing {missing}, contradicted {wrong}"
+    assert len(answer.text) <= DISCORD_LIMIT  # fits one Discord message
+
+
+def test_a_follow_up_uses_the_conversation(db: psycopg.Connection, agent: object) -> None:
+    run = sc.seed(db)
+    history: list[dict[str, Any]] = []
+    ask(agent, db, run, "Am I up or down?", now=lambda: sc.NOW, history=history)
+    answer = ask(agent, db, run, "Which game hurt most?", now=lambda: sc.NOW, history=history)
+    print(f"\nfollow-up A: {answer.text}")
+    assert answer.stop_reason == "end_turn"
+    assert re.search(r"DEN|Denver|BOS|Boston|Celtics", answer.text)
+    assert re.search(re.escape(f"{45 + sc.FEE_DEN:.2f}"), answer.text)  # the DEN loss, 47.21
