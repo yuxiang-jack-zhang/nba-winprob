@@ -4,8 +4,9 @@ Everything here is produced by `nba-winprob build-features` and
 `nba-winprob train-pregame`, seeded and reproducible. Numbers are on the held-out
 **2023 season** (1,227 games), which no model trains on.
 
-Status: the **pregame** half is ported and reproduced, and a Kalshi paper-trade
-backtest of injury and fatigue features is in [section 6](#6-paper-trading-against-kalshi-do-injury-and-fatigue-features-help). The **in-game** half
+Status: the **pregame** half is ported and reproduced, a Kalshi paper-trade
+backtest of injury and fatigue features is in [section 6](#6-paper-trading-against-kalshi-do-injury-and-fatigue-features-help),
+and the pre-registered in-game run-reversal backtest is in [section 7](#7-in-game-does-the-kalshi-price-overreact-to-scoring-runs). The class project's **in-game model**
 (logistic + Monte Carlo hybrid over 3.2M possessions) is not yet ported — see
 [Not done yet](#not-done-yet).
 
@@ -251,6 +252,66 @@ because the Knicks had more minutes missing. Five games cannot settle it.
   53 matched Kalshi games are dropped for lack of team history.
 - The fee is per contract without Kalshi's round-up to a cent per order.
 - Fills are assumed at the quoted price for $100; no depth or slippage.
+
+## 7. In-game: does the Kalshi price overreact to scoring runs?
+
+A backtest, not live trading. The idea comes from my manual in-game trading: in a
+close game, a 10–15 point run tends to be followed by a counter-run, especially
+after a timeout. The question tested is whether the **market price** overreacts
+to runs, measured as what a trader would actually have made.
+
+**Pre-registered.** The rule, its exits, latency and splits were written into the
+[design doc](docs/superpowers/specs/2026-11-26-intragame-trading-design.md) before
+any in-game data was examined, and this is the one run of that spec. Variants are
+reported alongside the primary result, never instead of it.
+
+- **Data:** 1,570 Kalshi NBA game markets (April 2025 – November 2026) with ESPN
+  play-by-play and Kalshi one-minute candles. 42 more games were rejected by the
+  loader: ESPN timestamps shifted by hours or a day (both 2026 DST changeovers and
+  Oct 28–30, 2025), play-by-play that does not sum to the final score, or missing
+  summaries.
+- **Rule (v1):** over the trailing 4:00 of game clock, one team outscored the
+  other by 10–15; the game is within 9; more than 2:00 left. Buy ~$100 of the team
+  that was run on. Exit at +5¢ on the mid, after 6:00 of game clock, or at 2:00
+  left, selling at the bid.
+- **Execution:** fills at the first one-minute candle close at least 30 s after the
+  trigger play, crossing the spread, paying Kalshi's taker fee.
+
+### Result: no edge
+
+| Run | Trades | P&L | P&L/trade | ROI | 95% CI of P&L |
+|---|---|---|---|---|---|
+| **v1, latency 30 s (primary)** | 1,712 | −$17,382 | −$10.15 | −11.3% | [−$20,053, −$14,663] |
+| v1, latency 0 s | 1,719 | −$18,086 | −$10.52 | −11.7% | [−$20,769, −$15,476] |
+| v1, latency 60 s | 1,709 | −$16,743 | −$9.80 | −11.0% | [−$19,526, −$13,915] |
+| v1, latency 120 s | 1,692 | −$15,529 | −$9.18 | −10.3% | [−$18,715, −$12,130] |
+| Hold to settlement | 1,067 | −$12,470 | −$11.69 | −12.9% | [−$20,073, −$4,781] |
+
+Every split loses: with or without a timeout by the run-on team (−10.7% and −8.7%),
+first half and second half, regular season and playoffs.
+
+**The price does not revert.** Measured without any exit rule, the mid of the side
+bought moves −0.10¢, +0.11¢, −0.19¢ and −0.35¢ at 1, 3, 5 and 10 minutes after
+entry. Every 95% interval spans zero and is within ±1¢. Waiting longer (latency
+120 s) loses slightly *less*, the opposite of what an overreaction that fades
+would produce.
+
+**Where the money goes.** Of $153k staked, taker fees took 7.1% and the spread
+(1.3¢ on an average price of 45¢) about 2.9%. Price movement after entry
+contributed about −1.4%, within noise. A round trip with taker orders costs
+roughly **10% of the stake**, so an in-game strategy needs a large, reliable
+price move just to break even.
+
+### What this does and does not show
+
+- At one-minute resolution, after a run is visible in the play-by-play, Kalshi's
+  in-game price has already absorbed it. The rule as written loses its costs.
+- It does **not** test reacting within seconds while watching a live broadcast;
+  one-minute candles cannot. It also cannot see the context I weigh by hand
+  (matchups, who is on the floor, fatigue), which is the next step's job.
+- The cost structure is the binding constraint. Any in-game strategy here must
+  either find moves well over 10% of the stake or cut costs: resting limit orders
+  instead of crossing the spread, and fewer, larger-edge trades.
 
 ## Not done yet
 

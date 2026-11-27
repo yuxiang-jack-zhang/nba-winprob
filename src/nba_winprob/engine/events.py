@@ -25,7 +25,7 @@ class Play:
 
     ts: float
     game_id: str
-    seq: int  # ESPN sequenceNumber; orders plays that share a timestamp
+    seq: int  # ESPN sequenceNumber: breaks ties at one ts (late entries get high numbers)
     period: int  # 1-4 regulation, 5+ overtime
     clock: float  # seconds left in the period
     home_score: int  # after this play
