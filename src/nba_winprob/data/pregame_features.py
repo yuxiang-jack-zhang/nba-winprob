@@ -109,15 +109,27 @@ WINRATE_CTX_COLS = [
 
 
 def load_base_tables(games_path: Path, team_games_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Load and clean ``games`` and ``team_games``.
+    """Load and clean ``games`` and ``team_games`` from the baseline CSVs."""
+    return clean_base_tables(*read_base_csvs(games_path, team_games_path))
+
+
+def read_base_csvs(games_path: Path, team_games_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The baseline CSVs as they are on disk, before any cleaning."""
+    return (
+        pd.read_csv(games_path, low_memory=False),
+        pd.read_csv(team_games_path, low_memory=False),
+    )
+
+
+def clean_base_tables(
+    games: pd.DataFrame, team_games: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Clean raw ``games`` and ``team_games``, whether read from CSV or from Postgres.
 
     Drops games with no label, restricts ``team_games`` to labelled games, parses
     dates, and coerces the ID columns to int64 (they arrive as floats with a few
     missing values).
     """
-    games = pd.read_csv(games_path, low_memory=False)
-    team_games = pd.read_csv(team_games_path, low_memory=False)
-
     games = games.dropna(subset=["homeWin"]).copy()
     team_games = team_games[team_games["gameId"].isin(games["gameId"])].copy()
 

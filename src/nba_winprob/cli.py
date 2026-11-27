@@ -37,7 +37,7 @@ from nba_winprob.models.pregame import (
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="NBA win-probability: feature builds and model training.",
+    help="NBA win-probability: feature builds, model training and the database.",
 )
 
 VariantOption = Annotated[
@@ -218,6 +218,39 @@ def _train_one(
         "stopped_early": history.stopped_early,
     }
     return dict(metrics), params, cols, data.test_season
+
+
+db_app = typer.Typer(no_args_is_help=True, help="Postgres: migrations and the base-table ETL.")
+app.add_typer(db_app, name="db")
+
+
+@db_app.command("migrate")
+def db_migrate() -> None:
+    """Apply pending schema migrations to NBA_DATABASE_URL."""
+    from nba_winprob.db import migrate, store
+
+    with store.connect(get_settings()) as conn:
+        applied = migrate.apply_migrations(conn)
+    typer.echo(f"applied {', '.join(applied)}" if applied else "schema up to date")
+
+
+@db_app.command("load")
+def db_load() -> None:
+    """Load the baseline tables, then build and store both feature variants from the DB."""
+    import psycopg
+
+    from nba_winprob.db import store
+
+    try:
+        with store.connect(get_settings()) as conn:
+            counts = store.load_baseline(conn, get_settings())
+    except psycopg.OperationalError as exc:
+        typer.secho(f"can't reach Postgres ({exc}); start it with `make db-up`", fg="red", err=True)
+        raise typer.Exit(1) from exc
+    except psycopg.errors.UndefinedTable as exc:
+        typer.secho(f"{exc}; run `nba-winprob db migrate` first", fg="red", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
 @app.command("show-metrics")
