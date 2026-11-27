@@ -118,6 +118,22 @@ class Strategy(Protocol):
     def on_fill(self, fill: Fill) -> None: ...
 
 
+class Broker(Protocol):
+    """Fills a strategy's orders. ``SimBroker`` (backtest and live paper, on real quotes),
+    a Kalshi demo broker and the live broker all fit here, so the runner never changes.
+
+    ``process`` sees every event before the strategy does and returns the fills it
+    caused; a live broker also reports fills that arrived from the exchange.
+    """
+
+    @property
+    def positions(self) -> Positions: ...
+
+    def submit(self, order: Order) -> None: ...
+
+    def process(self, event: Event) -> list[Fill]: ...
+
+
 def kalshi_taker_fee(price: float, contracts: int) -> float:
     """Kalshi's taker fee: 0.07 x C x P x (1 - P), rounded up to the next cent per order."""
     raw = 0.07 * abs(contracts) * price * (1 - price)

@@ -79,6 +79,36 @@ market reacted. This is conservative, and deliberately so.
 6. **Catch-up agent:** Claude with read-only tools over positions, trades (with
    reasons) and live game state.
 
+## Phase 4 design: live paper trading (added 2026-11-27)
+
+Jack chose to build live paper trading before any strategy has shown an edge (v1 has
+none, RESULTS.md section 7), so the infrastructure serves future strategies too.
+
+- **"Paper" fills simulated orders against Kalshi's real live book.** Production
+  market data is public, so this needs no account, and fills reflect real prices.
+  The broker is `SimBroker` itself, fed live quotes: paper and backtest share fill
+  logic. Kalshi's demo exchange has fake markets and liquidity, so its P&L would
+  mean nothing. It is used only to rehearse the authenticated order path (signing,
+  placing, fills) before phase 5.
+- **Live sources** emit the same events as history: an ESPN poller (today's games,
+  then each live game's play-by-play every few seconds, emitting only new plays,
+  scores rebuilt as in D10), a Kalshi poller (top of book for each live game's
+  home-team market), and a `Settle` when ESPN marks the game final. The ESPN →
+  Kalshi ticker mapping is shared with the history code.
+- **`Broker` protocol** in `events.py`: `positions`, `submit`, `process`.
+- **Runner:** `nba-winprob live run` merges events from the pollers, feeds the broker
+  and then the strategy, and persists everything. Ctrl-C or a kill-switch file stops
+  new orders. The paper broker cancels pending orders on stop and leaves positions to
+  settle.
+- **Postgres (migration 0002):** `runs` (strategy, broker, params, start/stop),
+  `events` (every play/quote/settle as JSONB, for audit and replay), `orders` (with
+  reason and meta), `fills`, and `game_state` (latest score and clock per game,
+  which is what the catch-up agent reads). Writes are append-only, except
+  `game_state`.
+- **Not in phase 4:** real-money orders. The demo broker reads keys from `.env`
+  (`KALSHI_DEMO_KEY_ID`, `KALSHI_DEMO_PRIVATE_KEY_PATH`) and refuses to run against a
+  non-demo host.
+
 ## Pre-registered spec: `RunReversal` v1
 
 Fixed before any in-game data is examined. Not to be tuned on the results; variants
