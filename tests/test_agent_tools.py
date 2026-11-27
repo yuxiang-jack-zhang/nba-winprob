@@ -9,7 +9,7 @@ import pytest
 
 from nba_winprob.agent import tools
 from nba_winprob.db import live_store
-from nba_winprob.engine.events import Fill, Order, kalshi_taker_fee
+from nba_winprob.engine.events import Fill, Order, Play, kalshi_taker_fee
 from tests import agent_scenario as sc
 
 
@@ -76,8 +76,8 @@ def test_pnl_is_withheld_while_a_position_has_no_price(db: psycopg.Connection, r
 
 
 def test_games_show_score_clock_and_price(db: psycopg.Connection) -> None:
-    sc.seed(db)
-    board = {g["matchup"]: g for g in tools.games(db, sc.NOW)}
+    run = sc.seed(db)
+    board = {g["matchup"]: g for g in tools.games(db, run, sc.NOW)}
     assert board["MIA @ NY"] | {"updated_minutes_ago": None} == {
         "game_id": sc.NYK,
         "matchup": "MIA @ NY",
@@ -155,3 +155,27 @@ def test_clock_text() -> None:
     assert tools.clock_text(2, 61.4) == "Q2 1:01"
     assert tools.clock_text(5, 300) == "OT1 5:00"
     assert tools.clock_text(None, None) == "not started"
+
+
+def stale_game(db: psycopg.Connection) -> None:
+    """A game an older, crashed run left 'live' in the shared game_state table."""
+    old = live_store.start_run(db, "old", "paper", {})
+    stale = Play(sc.T0 - 86400, "401000000", 1, 2, 300, 50, 48, "home", "x", 0, "old play")
+    live_store.record_events(db, old, [stale])
+    live_store.update_game_state(db, stale, "LAL", "GS")
+
+
+def test_games_are_scoped_to_the_run(db: psycopg.Connection) -> None:
+    stale_game(db)
+    run = sc.seed(db)
+    assert sorted(g["matchup"] for g in tools.games(db, run, sc.NOW)) == ["DEN @ BOS", "MIA @ NY"]
+    with pytest.raises(ValueError, match="no game"):
+        tools.recent_plays(db, run, sc.NOW, "401000000")
+
+
+@pytest.mark.parametrize("bad", [0, -1, 1000])
+def test_out_of_range_limits_are_refused(db: psycopg.Connection, run: int, bad: int) -> None:
+    with pytest.raises(ValueError, match="limit"):
+        tools.orders(db, run, sc.NOW, limit=bad)
+    with pytest.raises(ValueError, match="limit"):
+        tools.recent_plays(db, run, sc.NOW, sc.NYK, limit=bad)

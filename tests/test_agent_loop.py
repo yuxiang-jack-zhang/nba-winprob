@@ -64,11 +64,30 @@ def test_a_bad_tool_call_is_reported_back_as_an_error(db: psycopg.Connection) ->
     assert result["is_error"] is True and "no game LAL" in result["content"]
 
 
-def test_the_loop_gives_up_after_max_turns(db: psycopg.Connection) -> None:
+def test_the_last_round_forbids_tools_so_it_answers(db: psycopg.Connection) -> None:
     run = sc.seed(db)
-    api = Scripted(*[reply("tool_use", tool_use(str(i), "games")) for i in range(3)])
+    api = Scripted(
+        reply("tool_use", tool_use("a", "games")),
+        reply("tool_use", tool_use("b", "games")),
+        reply("end_turn", NS(type="text", text="Here's what I have.")),
+    )
     answer = ask(api, db, run, "?", now=lambda: sc.NOW, max_turns=3)
-    assert answer.stop_reason == "max_turns" and answer.tool_calls == ["games"] * 3
+    assert answer.text == "Here's what I have." and answer.tool_calls == ["games"] * 2
+    assert [r["tool_choice"]["type"] for r in api.requests] == ["auto", "auto", "none"]
+
+
+def test_the_loop_still_stops_if_the_last_round_asks_for_tools(db: psycopg.Connection) -> None:
+    run = sc.seed(db)
+    api = Scripted(*[reply("tool_use", tool_use(str(i), "games")) for i in range(2)])
+    answer = ask(api, db, run, "?", now=lambda: sc.NOW, max_turns=2)
+    assert answer.stop_reason == "max_turns"
+
+
+def test_a_cut_off_answer_says_so(db: psycopg.Connection) -> None:
+    run = sc.seed(db)
+    api = Scripted(reply("max_tokens", NS(type="text", text="You're down $42")))
+    answer = ask(api, db, run, "?", now=lambda: sc.NOW)
+    assert answer.text == "You're down $42\n(answer cut off: it hit the length limit)"
 
 
 def test_a_refusal_is_reported_not_raised(db: psycopg.Connection) -> None:

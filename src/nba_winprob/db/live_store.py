@@ -152,19 +152,29 @@ def open_positions(conn: psycopg.Connection, run_id: int) -> dict[tuple[str, Sid
     return {(game_id, team): int(n) for game_id, team, n in rows}
 
 
-def recent_orders(conn: psycopg.Connection, run_id: int, limit: int) -> list[dict[str, Any]]:
-    """Newest first, with the size-weighted fill price and total fee (null if unfilled)."""
+def recent_orders(
+    conn: psycopg.Connection, run_id: int, limit: int, game_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Newest first (one game's, if given), with the size-weighted fill price and total fee
+    (null if unfilled)."""
     with conn.cursor(row_factory=dict_row) as cur:
         return cur.execute(
             "select o.id, o.ts, o.game_id, o.team, o.contracts, o.reason, o.meta,"
             " o.status, o.error, f.fill_price, f.fee from orders o"
             " left join lateral (select sum(price * abs(contracts)) / sum(abs(contracts))"
             " as fill_price, sum(fee) as fee from fills where order_id = o.id) f on true"
-            " where o.run_id = %s order by o.ts desc, o.id desc limit %s",
-            [run_id, limit],
+            " where o.run_id = %s and (%s::text is null or o.game_id = %s)"
+            " order by o.ts desc, o.id desc limit %s",
+            [run_id, game_id, game_id, limit],
         ).fetchall()
 
 
-def game_states(conn: psycopg.Connection) -> list[dict[str, Any]]:
+def game_states(conn: psycopg.Connection, run_id: int | None = None) -> list[dict[str, Any]]:
+    """Every game's latest state, or only the games ``run_id`` saw events for (game_state
+    is shared across runs and never pruned, so an old run's game can look live forever)."""
     with conn.cursor(row_factory=dict_row) as cur:
-        return cur.execute("select * from game_state order by game_id").fetchall()
+        return cur.execute(
+            "select * from game_state where %(run)s::bigint is null or game_id in"
+            " (select distinct game_id from events where run_id = %(run)s) order by game_id",
+            {"run": run_id},
+        ).fetchall()

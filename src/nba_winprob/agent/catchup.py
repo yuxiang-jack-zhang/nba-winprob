@@ -72,7 +72,8 @@ def ask(
     messages = history if history is not None else []
     messages.append({"role": "user", "content": question})
     calls: list[str] = []
-    for _ in range(max_turns):
+    for turn in range(max_turns):
+        last = turn == max_turns - 1
         response = api.create(
             model=model,
             max_tokens=16000,
@@ -84,6 +85,8 @@ def ask(
             # If a safety classifier declines, the API retries on a fallback model itself.
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
+            # Last round: answer with what it has, rather than call tools nobody will read.
+            tool_choice={"type": "none" if last else "auto"},
         )
         # Append the full content: thinking blocks must go back unchanged.
         messages.append({"role": "assistant", "content": response.content})
@@ -114,4 +117,7 @@ def ask(
 def _text(response: Any) -> str:
     if response.stop_reason == "refusal":
         return "(the model declined to answer)"
-    return "\n".join(b.text for b in response.content if b.type == "text").strip()
+    text = "\n".join(b.text for b in response.content if b.type == "text").strip()
+    if response.stop_reason == "max_tokens":
+        text += "\n(answer cut off: it hit the length limit)"
+    return text.strip()

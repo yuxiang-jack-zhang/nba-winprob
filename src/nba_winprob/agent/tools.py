@@ -39,8 +39,16 @@ def clock_text(period: int | None, clock: float | None) -> str:
     return f"{quarter} {minutes}:{seconds:02d}"
 
 
-def _board(conn: psycopg.Connection) -> dict[str, dict[str, Any]]:
-    return {g["game_id"]: g for g in live_store.game_states(conn)}
+def _board(conn: psycopg.Connection, run_id: int | None = None) -> dict[str, dict[str, Any]]:
+    return {g["game_id"]: g for g in live_store.game_states(conn, run_id)}
+
+
+def _limit(limit: int | None, default: int) -> int:
+    if limit is None:
+        return default
+    if not 1 <= limit <= 200:
+        raise ValueError(f"limit must be between 1 and 200, got {limit}")
+    return limit
 
 
 def _matchup(board: dict[str, dict[str, Any]], game_id: str) -> str:
@@ -140,10 +148,10 @@ def run_status(conn: psycopg.Connection, run_id: int) -> dict[str, Any]:
     }
 
 
-def games(conn: psycopg.Connection, now: float) -> list[dict[str, Any]]:
-    """Every game on the board: score, clock, status and the market's home-win price."""
+def games(conn: psycopg.Connection, run_id: int, now: float) -> list[dict[str, Any]]:
+    """The run's games: score, clock, status and the market's home-win price."""
     out = []
-    for g in live_store.game_states(conn):
+    for g in live_store.game_states(conn, run_id):
         book = g["yes_bid"] is not None and g["yes_ask"] is not None
         out.append(
             {
@@ -173,8 +181,7 @@ def orders(
 ) -> list[dict[str, Any]]:
     """Newest first, each with the strategy's reason and inputs (``meta``)."""
     board = _board(conn)
-    rows = live_store.recent_orders(conn, run_id, 500)
-    rows = [o for o in rows if game_id is None or o["game_id"] == game_id][: limit or 20]
+    rows = live_store.recent_orders(conn, run_id, _limit(limit, 20), game_id)
     return [
         {
             "order_id": o["id"],
@@ -198,14 +205,14 @@ def recent_plays(
     conn: psycopg.Connection, run_id: int, now: float, game_id: str, limit: int | None = None
 ) -> list[dict[str, Any]]:
     """The game's latest plays as the bot received them, newest first."""
-    board = _board(conn)
+    board = _board(conn, run_id)
     if game_id not in board:
         raise ValueError(f"no game {game_id}; call `games` for the ids")
     g = board[game_id]
     rows = conn.execute(
         "select ts, payload from events where run_id = %s and game_id = %s and kind = 'play'"
         " order by seq desc limit %s",
-        [run_id, game_id, limit or 15],
+        [run_id, game_id, _limit(limit, 15)],
     ).fetchall()
     return [
         {
@@ -268,7 +275,7 @@ def call(conn: psycopg.Connection, run_id: int, name: str, args: dict[str, Any],
     """Run one tool and return its result as JSON. Raises ``ValueError`` for bad input."""
     handlers: dict[str, Callable[[], Any]] = {
         "run_status": lambda: run_status(conn, run_id),
-        "games": lambda: games(conn, now),
+        "games": lambda: games(conn, run_id, now),
         "orders": lambda: orders(conn, run_id, now, args.get("game_id"), args.get("limit")),
         "recent_plays": lambda: recent_plays(
             conn, run_id, now, str(args.get("game_id")), args.get("limit")

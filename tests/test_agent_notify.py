@@ -49,3 +49,12 @@ def test_money_and_chunks() -> None:
     assert chunks("a\nb\nc", limit=4) == ["a\nb", "c"]
     assert chunks("x" * 5, limit=2) == ["xx", "xx", "x"]
     assert chunks("") == []
+
+
+def test_a_stale_live_game_from_an_old_run_does_not_trigger_digests(db: psycopg.Connection) -> None:
+    from tests.test_agent_tools import stale_game
+
+    stale_game(db)
+    sc.seed(db)
+    db.execute("update game_state set status = 'final' where game_id = %s", [sc.NYK])
+    assert Notifier(db, now=sc.NOW).poll(sc.NOW + 2 * HALF_HOUR)[1] is False

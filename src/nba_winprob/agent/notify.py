@@ -37,11 +37,13 @@ class Notifier:
     def poll(self, now: float) -> tuple[list[str], bool]:
         """New messages to push, and whether a digest is due (true at most every interval)."""
         messages = self._fills() + self._rejections() + self._recaps() + self._stops()
+        run = tools.latest_run_id(self.conn)
         row = self.conn.execute(
-            "select exists (select 1 from runs where id = (select max(id) from runs)"
-            " and stopped_at is null) and exists (select 1 from game_state where status = 'live')"
+            "select exists (select 1 from runs where id = %s and stopped_at is null)",
+            [run],
         ).fetchone()
-        due = bool(row and row[0]) and now - self.last_digest >= self.digest_every_s
+        live = any(g["status"] == "live" for g in tools._board(self.conn, run).values())
+        due = bool(row and row[0]) and live and now - self.last_digest >= self.digest_every_s
         if due:
             self.last_digest = now
         return messages, due
