@@ -298,6 +298,60 @@ def ingame_backtest() -> None:
     typer.echo(f"saved {path}", err=True)
 
 
+live_app = typer.Typer(no_args_is_help=True, help="Live trading on today's games.")
+app.add_typer(live_app, name="live")
+
+
+@live_app.command("run")
+def live_run(
+    broker: Annotated[
+        str, typer.Option(help="paper (simulated fills on Kalshi's real book) or demo")
+    ] = "paper",
+    poll: Annotated[float, typer.Option(help="Seconds between polls.")] = 5.0,
+    minutes: Annotated[float | None, typer.Option(help="Stop after this many minutes.")] = None,
+) -> None:
+    """Paper-trade RunReversal v1 on live games. Stop: Ctrl-C or create data/live/STOP."""
+    import dataclasses
+    import logging
+    import time
+
+    from nba_winprob.db import live_store, migrate, store
+    from nba_winprob.engine.broker import SimBroker
+    from nba_winprob.engine.events import Broker
+    from nba_winprob.live.runner import run_live
+    from nba_winprob.sources.live import LiveFeed
+    from nba_winprob.strategies.run_reversal import V1, RunReversal
+
+    if broker not in ("paper", "demo"):  # real money is not wired into the CLI at all
+        raise typer.BadParameter("broker must be 'paper' or 'demo'")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+    settings = get_settings()
+    chosen: Broker
+    if broker == "paper":
+        chosen = SimBroker(latency_s=0)  # fills at the next polled quote: ~poll seconds later
+    else:
+        from nba_winprob.brokers.demo import DemoBroker
+        from nba_winprob.brokers.kalshi_client import KalshiClient
+
+        chosen = DemoBroker(KalshiClient.demo(settings), poll_every_s=10)
+    stop_file = settings.data_dir / "live" / "STOP"
+    deadline = time.time() + 60 * minutes if minutes is not None else float("inf")
+    strategy = RunReversal(V1)
+    with store.connect(settings) as conn:
+        migrate.apply_migrations(conn)
+        run_id = live_store.start_run(conn, strategy.name, broker, dataclasses.asdict(V1))
+        typer.echo(f"run {run_id}: {strategy.name} on {broker}; stop with Ctrl-C or {stop_file}")
+        run_live(
+            strategy,
+            chosen,
+            LiveFeed(),
+            conn,
+            run_id,
+            poll_s=poll,
+            should_stop=lambda: stop_file.exists() or time.time() > deadline,
+        )
+
+
 @app.command("show-metrics")
 def show_metrics() -> None:
     """Print a table of every artifact's test metrics, newest config last."""

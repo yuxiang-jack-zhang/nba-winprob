@@ -55,6 +55,11 @@ class LiveFeed:
         self._ended: set[str] = set()  # End Game emitted: later quotes are not tradeable
         self._done: set[str] = set()
 
+    @property
+    def games(self) -> list[espn.Game]:
+        """Today's games as of the last scoreboard refresh."""
+        return self._games
+
     def poll(self, now: float) -> list[Event]:
         if now - self._board_at >= SCOREBOARD_EVERY:
             day = (datetime.fromtimestamp(now, kalshi.ET) - DAY_TURNOVER).date()
