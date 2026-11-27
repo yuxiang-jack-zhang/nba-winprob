@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The baseline tables live in Git LFS. Without this the checkout gets
+          # pointer files and every test that needs real data skips, so CI would
+          # pass while proving nothing.
+          lfs: true
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --all-groups
+
+      - name: Confirm the LFS tables were fetched
+        # A silently-skipped suite is worse than a red build: fail loudly instead.
+        run: |
+          for f in games.csv team_games.csv pregame_master.csv; do
+            if head -c 40 "data/baseline/$f" | grep -q 'git-lfs.github.com'; then
+              echo "::error::data/baseline/$f is an unfetched LFS pointer"
+              exit 1
+            fi
+          done
+          wc -l data/baseline/*.csv
+
+      - name: Lint
+        run: |
+          uv run ruff check --output-format=github .
+          uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy
+
+      - name: Test
+        run: uv run pytest -q -m "not slow"
+
+      - name: Reproduce the feature table and the pregame metrics
+        # The end-to-end claim the README makes, checked on every push.
+        run: |
+          uv run nba-winprob build-features
+          uv run nba-winprob train-pregame --variant notebook
+          uv run nba-winprob show-metrics

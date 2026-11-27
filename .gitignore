@@ -1,0 +1,52 @@
+# Data: only data/baseline/ is tracked (via Git LFS). Everything else is derived
+# or raw and must never be committed -- the original CS229 repo committed a 1.6 GB
+# archive because its .gitignore said "dataset.zip" while the file was "datasets.zip".
+data/*
+!data/baseline/
+data/baseline/*
+!data/baseline/*.csv
+!data/baseline/README.md
+
+# Model artifacts
+artifacts/
+
+# Archives and raw dumps, wherever they land
+*.zip
+*.tar
+*.tar.xz
+*.gz
+
+# Serialized models
+*.pkl
+*.pt
+*.pth
+*.joblib
+*.onnx
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Notebooks (kept out of this repo on purpose; see README)
+*.ipynb
+.ipynb_checkpoints/
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
