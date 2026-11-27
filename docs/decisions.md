@@ -92,3 +92,18 @@ check constraint, migration lock) fails its test.
 done yet"). All 9,407 scheduled games are loaded, including the 1,229 unplayed 2024 games with
 `home_win` null; they have no team-game rows, so no features yet. **Why:** tables arrive with
 the code that uses them, so every table is exercised by a test the day it exists.
+
+## D9. Direction: an in-game Kalshi trading system, not a prediction API — 2026-11-26
+**Context:** milestones 3–7 were a FastAPI prediction service, an LLM agent, evals and an AWS
+deploy. Jack trades Kalshi NBA game markets in-game by hand and wants the repo to be the
+system he trades with: paper first, then real orders in live games.
+**Options:** *keep the API roadmap* — + already planned; − a pregame-probability API does not
+help in-game trading. *Pivot to trading* — + the work serves a real use; + the backtest is an
+honest, falsifiable result either way; − more moving parts (live data, an exchange API, risk).
+**Decision:** pivot (design: `docs/superpowers/specs/2026-11-26-intragame-trading-design.md`).
+Keep Postgres and the LLM agent, repurposed as a catch-up agent over the bot's positions and
+trades. The API and cloud deploy become "where the live trader runs".
+**Why:** in-game prices move on information a pregame model cannot see; the question worth
+answering is whether the market overreacts to runs. **Revisit if:** the pre-registered
+backtest and the model both find nothing beyond the market price; then the engine is still
+the base for other strategies, but live trading of this one is off.

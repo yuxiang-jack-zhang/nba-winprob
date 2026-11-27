@@ -1,14 +1,16 @@
 # NBA Win Probability
 
-Pregame and in-game NBA win-probability models, being turned from exploratory
-notebooks into a deployed prediction service with an LLM agent on top.
+NBA win-probability models and a trading system for Kalshi's NBA game markets,
+aimed at **in-game** trading: prove a strategy on paper against real market
+prices, then let it trade live games under hard risk limits. An LLM agent
+answers "what is my bot holding, and why?" for when I'm not watching.
 
-**Status: milestone 2 of 7.** The pregame models are ported into an installable
-package, reproduce their original metrics exactly, and are covered by tests and
-CI. Games, team games and features now load into Postgres through versioned
-migrations, and features rebuilt from the database match the original exactly.
-The API, agent, eval harness and AWS deployment are not built yet — see
-[Roadmap](#roadmap). Nothing below claims to be running in production.
+**Status: milestone 3 of 8.** Done: the pregame models (ported, reproduced,
+tested) and Postgres (migrations, ETL, features that round-trip exactly). In
+progress: in-game history, a backtest engine shared with live trading, and the
+first strategy — see the [design](docs/superpowers/specs/2026-11-26-intragame-trading-design.md).
+**No order has been placed on any exchange.** Nothing here claims an edge until
+the backtest in [RESULTS.md](RESULTS.md) says so.
 
 ## Origin and credit
 
@@ -200,11 +202,15 @@ regression is a SIGSEGV rather than a test failure.
 |---|---|---|
 | 1 | Repo, package refactor, reproduced metrics | **done** |
 | 2 | Postgres schema, migrations, ETL | **done** (in-game possession table waits for the archive) |
-| 3 | FastAPI service, Docker, prediction log, integration tests | next |
-| 4 | Tool-calling LLM agent (`/ask`) | |
-| 5 | Eval harness: ≥50 cases, tool selection, hallucination rate | |
-| 6 | AWS deploy, IaC, CI/CD, budget alert | |
-| 7 | Demo UI and polish | |
+| 3 | In-game history (Kalshi minute prices + ESPN plays), event-driven engine, pre-registered run-reversal backtest | in progress |
+| 4 | In-game model: what does the market price get wrong? | |
+| 5 | Live paper trading on Kalshi's demo exchange; orders and fills in Postgres | |
+| 6 | Live orders: off by default, dollar caps, kill switch | |
+| 7 | Catch-up agent (Claude + tools over positions, trades, games) and its evals | |
+| 8 | Deploy the live trader (Docker, cloud, budget alert) | |
+
+The roadmap changed after milestone 2, from "prediction API" to "trading
+system"; see [D9](docs/decisions.md).
 
 ## License
 
