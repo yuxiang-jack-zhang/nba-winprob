@@ -1,14 +1,18 @@
 # NBA Win Probability
 
-Pregame and in-game NBA win-probability models, being turned from exploratory
-notebooks into a deployed prediction service with an LLM agent on top.
+NBA win-probability models and a trading system for Kalshi's NBA game markets,
+aimed at **in-game** trading: prove a strategy on paper against real market
+prices, then let it trade live games under hard risk limits. An LLM agent
+answers "what is my bot holding, and why?" for when I'm not watching.
 
-**Status: milestone 2 of 7.** The pregame models are ported into an installable
-package, reproduce their original metrics exactly, and are covered by tests and
-CI. Games, team games and features now load into Postgres through versioned
-migrations, and features rebuilt from the database match the original exactly.
-The API, agent, eval harness and AWS deployment are not built yet — see
-[Roadmap](#roadmap). Nothing below claims to be running in production.
+**Status: milestone 5 of 8.** Done: the pregame models, Postgres, in-game
+history (1,570 games of Kalshi minute prices and ESPN plays), an event-driven
+engine shared by backtest and live, and two pre-registered tests of in-game
+edges. Both came back negative, and are reported as such in
+[RESULTS.md](RESULTS.md) sections 7–8: the market already prices runs and game
+state, and fees plus spread cost ~10% of stake per round trip. In progress:
+live **paper** trading on Kalshi's real order book (`nba-winprob live run`).
+**No real-money order has been placed, and no code path can place one.**
 
 ## Origin and credit
 
@@ -110,6 +114,17 @@ from what was stored. The DB tests skip without it.
 make db       # docker compose up, nba-winprob db migrate, nba-winprob db load
 ```
 
+In-game research and live paper trading. The game list comes from the paper-trade
+fetcher; everything else is public ESPN and Kalshi data, cached under `data/`.
+
+```bash
+uv run python papertrade/fetch.py espn && uv run python papertrade/fetch.py kalshi
+uv run nba-winprob ingame fetch      # plays + minute candles for ~1,600 games (resumable)
+uv run nba-winprob ingame backtest   # the pre-registered run-reversal backtest (RESULTS §7)
+uv run nba-winprob ingame model      # does anything beat the market price? (RESULTS §8)
+uv run nba-winprob live run          # paper-trade today's games on Kalshi's real book
+```
+
 ## Layout
 
 ```
@@ -200,11 +215,15 @@ regression is a SIGSEGV rather than a test failure.
 |---|---|---|
 | 1 | Repo, package refactor, reproduced metrics | **done** |
 | 2 | Postgres schema, migrations, ETL | **done** (in-game possession table waits for the archive) |
-| 3 | FastAPI service, Docker, prediction log, integration tests | next |
-| 4 | Tool-calling LLM agent (`/ask`) | |
-| 5 | Eval harness: ≥50 cases, tool selection, hallucination rate | |
-| 6 | AWS deploy, IaC, CI/CD, budget alert | |
-| 7 | Demo UI and polish | |
+| 3 | In-game history (Kalshi minute prices + ESPN plays), event-driven engine, pre-registered run-reversal backtest | **done** (no edge) |
+| 4 | In-game model: what does the market price get wrong? | **done** (nothing beyond the price) |
+| 5 | Live paper trading on Kalshi's real book (demo exchange for the order path); orders and fills in Postgres | in progress |
+| 6 | Live orders: off by default, dollar caps, kill switch | |
+| 7 | Catch-up agent (Claude + tools over positions, trades, games) and its evals | |
+| 8 | Deploy the live trader (Docker, cloud, budget alert) | |
+
+The roadmap changed after milestone 2, from "prediction API" to "trading
+system"; see [D9](docs/decisions.md).
 
 ## License
 
