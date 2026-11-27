@@ -3,10 +3,12 @@
 Pregame and in-game NBA win-probability models, being turned from exploratory
 notebooks into a deployed prediction service with an LLM agent on top.
 
-**Status: milestone 1 of 7.** The pregame models are ported into an installable
+**Status: milestone 2 of 7.** The pregame models are ported into an installable
 package, reproduce their original metrics exactly, and are covered by tests and
-CI. The database, API, agent, eval harness and AWS deployment are not built yet —
-see [Roadmap](#roadmap). Nothing below claims to be running in production.
+CI. Games, team games and features now load into Postgres through versioned
+migrations, and features rebuilt from the database match the original exactly.
+The API, agent, eval harness and AWS deployment are not built yet — see
+[Roadmap](#roadmap). Nothing below claims to be running in production.
 
 ## Origin and credit
 
@@ -38,6 +40,9 @@ this repo.
 - **Leakage is proven, not asserted.** Reversing a game's outcome must leave that
   game's own features untouched. The test is mutation-checked: introduce a leak
   and it fails on 10/10 sampled games.
+- **The database is tested like code.** Migrations, upserts and constraints run
+  against real Postgres, every test is mutation-checked, and the concurrency test
+  caught a real migration race before it shipped ([decisions](docs/decisions.md)).
 - **Honest reporting.** The original comparison of three models turned out to
   use three different feature sets and splits. [RESULTS.md](RESULTS.md) says so.
 
@@ -98,6 +103,13 @@ uv run nba-winprob show-metrics
 make check    # ruff, mypy, pytest
 ```
 
+Postgres (Docker): migrate, load the baseline, and build both feature variants
+from what was stored. The DB tests skip without it.
+
+```bash
+make db       # docker compose up, nba-winprob db migrate, nba-winprob db load
+```
+
 ## Layout
 
 ```
@@ -109,8 +121,13 @@ src/nba_winprob/
     pregame.py              logistic, MLP, XGBoost: splits, training, params
     metrics.py              log-loss, accuracy, AUC, Brier, ECE, by-stage
     artifacts.py            versioned save/load with metrics alongside
+  db/
+    migrations/             numbered SQL, applied once each under an advisory lock
+    migrate.py              the migration runner
+    store.py                base-table ETL, consistency checks, feature store
   cli.py                    nba-winprob entry point
-tests/                      incl. test_no_leakage.py and the bug-pinning tests
+tests/                      incl. test_no_leakage.py, the bug-pinning tests, test_db.py
+docs/decisions.md           every non-trivial decision: options, choice, why
 data/baseline/              the three tables, in Git LFS
 data/{raw,interim,processed}/  gitignored
 artifacts/                  gitignored
@@ -122,15 +139,16 @@ Only the left column exists today.
 
 ```
           BUILT                             NOT BUILT YET
-  ┌──────────────────────┐        ┌─────────────────────────────┐
-  │ nba_winprob package  │        │ FastAPI  /predict/pregame   │
-  │  ETL + features      │        │          /predict/ingame    │
-  │  pregame models       │──────▶│          /ask (LLM agent)   │
-  │  metrics + artifacts │        │ Postgres (games, features,  │
-  │  CLI                 │        │   game_states, predictions) │
-  │  tests + CI          │        │ Eval harness (50+ cases)    │
-  └──────────────────────┘        │ Docker → AWS, IaC, budget   │
-                                  └─────────────────────────────┘
+  ┌──────────────────────────┐    ┌─────────────────────────────┐
+  │ nba_winprob package      │    │ FastAPI  /predict/pregame   │
+  │  features + models       │    │          /predict/ingame    │
+  │  metrics + artifacts     │───▶│          /ask (LLM agent)   │
+  │  CLI, tests, CI          │    │ Postgres: predictions,      │
+  │ Postgres                 │    │   model_versions,           │
+  │  games, team_games,      │    │   game_states               │
+  │  pregame_features        │    │ Eval harness (50+ cases)    │
+  │  migrations, ETL         │    │ Docker → AWS, IaC, budget   │
+  └──────────────────────────┘    └─────────────────────────────┘
 ```
 
 ## Design decisions
@@ -181,8 +199,8 @@ regression is a SIGSEGV rather than a test failure.
 | | Milestone | Status |
 |---|---|---|
 | 1 | Repo, package refactor, reproduced metrics | **done** |
-| 2 | Postgres schema, migrations, ETL, in-game possession table | next |
-| 3 | FastAPI service, Docker, integration tests | |
+| 2 | Postgres schema, migrations, ETL | **done** (in-game possession table waits for the archive) |
+| 3 | FastAPI service, Docker, prediction log, integration tests | next |
 | 4 | Tool-calling LLM agent (`/ask`) | |
 | 5 | Eval harness: ≥50 cases, tool selection, hallucination rate | |
 | 6 | AWS deploy, IaC, CI/CD, budget alert | |
