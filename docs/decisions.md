@@ -179,7 +179,8 @@ re-sorts a poll. `game_state` only moves forward in game time, so a late-inserte
 roll the board back. Broker refusals become `rejected` orders, not crashes. Every stop
 (Ctrl-C, `data/live/STOP`, a time limit, a crash) closes the run with its reason and cancels
 unfilled orders. The CLI offers `paper` and `demo` only; no code path places real-money
-orders. **Limits:** postponed games never settle (the feed emits no `Settle`), and ESPN
+orders. Quotes for a game start only after its play backlog has gone out, so a strategy
+cannot trade on stale plays replayed at start-up. **Limits:** postponed games never settle (the feed emits no `Settle`), and ESPN
 corrections to plays already emitted are not re-sent.
 
 ## D16. Kalshi demo broker: V2 orders, reduce-only sells, a host guard — 2026-11-27
