@@ -50,3 +50,11 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+# Agent working files: never committed
+CLAUDE.md
+AGENTS.md
+.claude/
+.superpowers/
+docs/plan.md
+docs/progress.md
