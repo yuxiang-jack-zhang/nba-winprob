@@ -109,6 +109,29 @@ none, RESULTS.md section 7), so the infrastructure serves future strategies too.
   (`KALSHI_DEMO_KEY_ID`, `KALSHI_DEMO_PRIVATE_KEY_PATH`) and refuses to run against a
   non-demo host.
 
+## Phase 6 design: catch-up agent (added 2026-11-27)
+
+Jack is away from the games and wants to know what the bot holds, why, and how its
+games are going.
+
+- **Shape:** `nba-winprob agent ask "question"` answers one question about one run
+  (default: the latest). No chat session, no server yet.
+- **Approaches:** (a) a plain tool-use loop on the Messages API, run locally — **chosen**:
+  the data is in a local Postgres, the loop is ~40 lines, and every step is testable with
+  a scripted client; (b) Anthropic Managed Agents — hosted loop and sandbox, but the
+  sandbox cannot reach a laptop's Postgres, and it adds session billing; (c) let the model
+  write SQL — flexible, but it would compute P&L itself and could be wrong.
+- **Tools** (read-only, fixed SQL): `run_status` (positions marked to market, fees,
+  P&L), `games` (score, clock, market price), `orders` (with reasons and strategy
+  inputs), `recent_plays`. Code computes every number; the prompt tells the model to
+  report figures as given and to say when data is missing. The connection is set
+  read-only as a second guard.
+- **Model:** Claude Opus 5.5, effort medium, server-side refusal fallback on.
+- **Evals:** a seeded evening (one live position, one settled loss, one rejected order)
+  shared with the tool tests; six questions graded by regex for the facts that must
+  appear and claims that must not. Opt-in (`NBA_RUN_LLM_EVALS=1`), since each run costs
+  money.
+
 ## Pre-registered spec: `RunReversal` v1
 
 Fixed before any in-game data is examined. Not to be tuned on the results; variants

@@ -10,8 +10,9 @@ history (1,570 games of Kalshi minute prices and ESPN plays), an event-driven
 engine shared by backtest and live, and two pre-registered tests of in-game
 edges. Both came back negative, and are reported as such in
 [RESULTS.md](RESULTS.md) sections 7–8: the market already prices runs and game
-state, and fees plus spread cost ~10% of stake per round trip. In progress:
-live **paper** trading on Kalshi's real order book (`nba-winprob live run`).
+state, and fees plus spread cost ~10% of stake per round trip. Built, awaiting
+its first real games: live **paper** trading on Kalshi's real order book
+(`nba-winprob live run`) and a catch-up agent (`nba-winprob agent ask`).
 **No real-money order has been placed, and no code path can place one.**
 
 ## Origin and credit
@@ -123,6 +124,7 @@ uv run nba-winprob ingame fetch      # plays + minute candles for ~1,600 games (
 uv run nba-winprob ingame backtest   # the pre-registered run-reversal backtest (RESULTS §7)
 uv run nba-winprob ingame model      # does anything beat the market price? (RESULTS §8)
 uv run nba-winprob live run          # paper-trade today's games on Kalshi's real book
+uv run nba-winprob agent ask         # "catch me up" (needs ANTHROPIC_API_KEY in .env)
 ```
 
 ## Layout
@@ -140,6 +142,7 @@ src/nba_winprob/
     migrations/             numbered SQL, applied once each under an advisory lock
     migrate.py              the migration runner
     store.py                base-table ETL, consistency checks, feature store
+  agent/                    catch-up agent: read-only tools + Claude tool-use loop
   cli.py                    nba-winprob entry point
 tests/                      incl. test_no_leakage.py, the bug-pinning tests, test_db.py
 docs/decisions.md           every non-trivial decision: options, choice, why
@@ -217,9 +220,9 @@ regression is a SIGSEGV rather than a test failure.
 | 2 | Postgres schema, migrations, ETL | **done** (in-game possession table waits for the archive) |
 | 3 | In-game history (Kalshi minute prices + ESPN plays), event-driven engine, pre-registered run-reversal backtest | **done** (no edge) |
 | 4 | In-game model: what does the market price get wrong? | **done** (nothing beyond the price) |
-| 5 | Live paper trading on Kalshi's real book (demo exchange for the order path); orders and fills in Postgres | in progress |
+| 5 | Live paper trading on Kalshi's real book (demo exchange for the order path); orders and fills in Postgres | built; first live games pending |
 | 6 | Live orders: off by default, dollar caps, kill switch | |
-| 7 | Catch-up agent (Claude + tools over positions, trades, games) and its evals | |
+| 7 | Catch-up agent (Claude + tools over positions, trades, games) and its evals | built; evals written, not yet run |
 | 8 | Deploy the live trader (Docker, cloud, budget alert) | |
 
 The roadmap changed after milestone 2, from "prediction API" to "trading

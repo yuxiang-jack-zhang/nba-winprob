@@ -197,3 +197,19 @@ signing are supported. The client refuses any host but Kalshi's two demo hosts u
 double an order. The demo exchange lists the same NBA tickers as production, but its books
 are fake and thin, so it rehearses the order path only. **Revisit if:** phase 5 (real orders)
 starts: that needs its own caps, kill switch and an explicit decision by Jack.
+
+## D17. Catch-up agent: local tool loop, code does the arithmetic — 2026-11-27
+**Context:** the agent answers "what is my bot holding, why, and how are the games going?"
+from the live tables.
+**Options:** Managed Agents (hosted loop, but its sandbox cannot reach a local Postgres);
+a model-written-SQL tool (flexible, but the model would add up P&L itself); a fixed set of
+read-only tools on a plain Messages API loop.
+**Decision:** four fixed read-only tools (`run_status`, `games`, `orders`,
+`recent_plays`) and a hand-written loop with the client injected, so tests script it. The
+tools compute P&L, marks and fees: open positions are marked at what selling would fetch now
+(home at the YES bid, away at 1 − the YES ask), settled ones at $1/$0, and P&L is withheld
+when any position has no price rather than counted at zero. The CLI's connection is set
+`default_transaction_read_only`. Evals are deterministic regex checks against a seeded
+scenario whose numbers the tool tests pin, opt-in because they bill. **Revisit if:** Jack
+wants push updates (Discord) or follow-up questions, which need a session and a schedule.
+
