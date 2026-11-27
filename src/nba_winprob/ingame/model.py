@@ -241,8 +241,8 @@ def report(settings: Settings, progress: Callable[[str], None] = print) -> str:
     for label, mask in (
         ("first half (periods 1-2)", preds["period"] <= 2),
         ("second half + OT", preds["period"] >= 3),
-        ("|margin| ≤ 9", preds["margin"].abs() <= 9),
-        ("|margin| > 9", preds["margin"].abs() > 9),
+        ("abs(margin) ≤ 9", preds["margin"].abs() <= 9),
+        ("abs(margin) > 9", preds["margin"].abs() > 9),
     ):
         part = preds[mask]
         part_games = pd.Index(part["game_id"].unique())
@@ -268,7 +268,7 @@ def report(settings: Settings, progress: Callable[[str], None] = print) -> str:
 
     lines += [
         "",
-        "**Economics of B**: trade when |predicted move| > spread + taker fee on both legs; "
+        "**Economics of B**: trade when abs(predicted move) > spread + taker fee on both legs; "
         "net = realized signed move minus that cost, per contract.",
         "",
         "| Model | Trades | Games | Mean net per contract | 95% CI |",
