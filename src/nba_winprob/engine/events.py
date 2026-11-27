@@ -11,6 +11,7 @@ Prices are for the home team's YES contract on Kalshi, in dollars in (0, 1). Buy
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
@@ -91,11 +92,14 @@ class Order:
     contracts: int
     reason: str
     meta: Mapping[str, float | int | bool | str] = field(default_factory=dict)
+    # Identifies the order across copies (a broker's fill may carry a copy with the filled
+    # count); left out of equality and repr.
+    uid: str = field(default_factory=lambda: uuid.uuid4().hex, compare=False, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
 class Fill:
-    order: Order
+    order: Order  # the order as filled: contracts is the count filled; uid matches the original
     ts: float
     price: float  # dollars per contract of the side traded
     fee: float  # dollars, total for the fill

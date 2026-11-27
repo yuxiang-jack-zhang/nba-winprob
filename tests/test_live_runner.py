@@ -167,3 +167,76 @@ def test_a_crash_still_closes_the_run(db: psycopg.Connection) -> None:
         go(db, [[play(100, 2, 0)]], strategy=Broken())
     [(reason,)] = rows(db, "select stop_reason from runs")
     assert isinstance(reason, str) and reason.startswith("error: RuntimeError")
+
+
+def test_demo_broker_path_end_to_end(db: psycopg.Connection) -> None:
+    """run_live with the real DemoBroker against a fake exchange: a rejection, a dropped
+    network on the fills poll, then a fill that lands on its order's row."""
+    from nba_winprob.brokers.demo import DemoBroker
+    from tests.test_kalshi_demo import FakeExchange, client, raw_fill
+
+    exchange = FakeExchange()
+    exchange.fills = [raw_fill("oid0", "10.00", "0.4200")]  # oid0: the first order placed
+
+    class BuyOnCue(Buyer):
+        def on_event(self, event: Event, positions: Positions) -> list[Order]:
+            if isinstance(event, Play) and event.text == "buy":
+                return [Order(event.ts, G, "home", 10, "cue")]
+            return []
+
+    def network(down: bool) -> None:
+        exchange.get_error = "GET fills: URLError timed out" if down else None
+
+    script: list[list[Event]] = [
+        [play(100, 2, 0, text="buy"), quote(100)],  # no quote yet when the order goes in
+        [play(110, 2, 0, text="buy")],  # placed: oid0
+        [quote(120)],  # fills poll fails (set below): retried, the run goes on
+        [quote(130)],  # fills poll succeeds
+    ]
+
+    class Scripted(Feed):
+        def poll(self, now: float) -> list[Event]:
+            if len(self.batches) == 2:
+                network(down=True)
+            if len(self.batches) == 1:
+                network(down=False)
+            return super().poll(now)
+
+    run_id = live_store.start_run(db, "cue", "demo", {})
+    polls = iter(range(100, 200, 10))
+    run_live(
+        BuyOnCue(),
+        DemoBroker(client(exchange), poll_every_s=0, clock=lambda: 0.0),
+        Scripted(script),
+        db,
+        run_id,
+        clock=lambda: float(next(polls)),
+        sleep=lambda _: None,
+        max_polls=len(script),
+    )
+    filled, rejected = live_store.recent_orders(db, run_id, 10)
+    assert (rejected["status"], rejected["error"]) == ("rejected", "no quote yet")
+    assert (filled["status"], filled["fill_price"]) == ("filled", pytest.approx(0.42))
+    assert live_store.open_positions(db, run_id) == {(G, "home"): 10}
+    assert rows(db, "select stop_reason from runs where id=%s", run_id) == [("feed exhausted",)]
+
+
+def test_settlement_cancels_that_games_unfilled_orders(db: psycopg.Connection) -> None:
+    run_id = go(db, [[play(100, 2, 0)], [Settle(110, G, True)], [quote(120)]])
+    [order] = live_store.recent_orders(db, run_id, 10)
+    assert (order["status"], order["error"]) == ("cancelled", "game settled before it filled")
+
+
+def test_a_failed_close_does_not_hide_the_original_error(
+    db: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Broken(Buyer):
+        def on_event(self, event: Event, positions: Positions) -> list[Order]:
+            raise RuntimeError("strategy bug")
+
+    def dead(*args: object) -> None:
+        raise psycopg.OperationalError("connection lost")
+
+    monkeypatch.setattr(live_store, "stop_run", dead)
+    with pytest.raises(RuntimeError, match="strategy bug"):
+        go(db, [[play(100, 2, 0)]], strategy=Broken())

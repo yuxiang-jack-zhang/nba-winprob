@@ -41,7 +41,8 @@ Transport = Callable[[str, str, Mapping[str, str], bytes | None], Any]
 
 
 class KalshiError(RuntimeError):
-    """The exchange answered with an HTTP error; the message carries its status and body."""
+    """The exchange answered with an HTTP error, or could not be reached (URL error,
+    timeout, reset); the message says which."""
 
 
 def urllib_transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> Any:
@@ -52,6 +53,8 @@ def urllib_transport(method: str, url: str, headers: Mapping[str, str], body: by
             return json.loads(resp.read() or b"null")
     except urllib.error.HTTPError as err:
         raise KalshiError(f"{method} {url}: HTTP {err.code} {err.read().decode()[:500]}") from err
+    except (OSError, json.JSONDecodeError) as err:  # URLError, timeouts, resets; bad body
+        raise KalshiError(f"{method} {url}: {type(err).__name__} {err}") from err
 
 
 def sign(key: PrivateKey, timestamp_ms: str, method: str, path: str) -> str:

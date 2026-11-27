@@ -27,6 +27,8 @@ class FakeExchange:
         self.calls: list[tuple[str, str, dict[str, str], Any]] = []
         self.fills: list[dict[str, Any]] = []
         self.order_error: str | None = None
+        self.fill_nothing = False  # the IOC order finds no liquidity
+        self.get_error: str | None = None  # GETs fail, e.g. the network drops
 
     def __call__(
         self, method: str, url: str, headers: Mapping[str, str], body: bytes | None
@@ -35,7 +37,10 @@ class FakeExchange:
         if method == "POST":
             if self.order_error:
                 raise KalshiError(self.order_error)
-            return {"order_id": f"oid{len(self.orders) - 1}", "fill_count": "0.00"}
+            filled = "0.00" if self.fill_nothing else self.orders[-1].get("count", "1")
+            return {"order_id": f"oid{len(self.orders) - 1}", "fill_count": filled}
+        if self.get_error:
+            raise KalshiError(self.get_error)
         return {"fills": self.fills, "cursor": ""}
 
     @property
@@ -179,18 +184,61 @@ def test_rejects_without_a_quote_for_that_game() -> None:
     exchange = FakeExchange()
     broker = DemoBroker(client(exchange), poll_every_s=5)
     broker.process(quote(game="OTHER"))
-    broker.submit(order("home", 5))
+    with pytest.raises(ValueError, match="no quote yet"):
+        broker.submit(order("home", 5))
     assert exchange.calls == []
     assert broker.rejected == [(order("home", 5), "no quote yet")]
 
 
-def test_exchange_error_is_recorded_not_raised() -> None:
+def test_exchange_error_is_a_rejection() -> None:
     exchange = FakeExchange()
     exchange.order_error = "HTTP 400 invalid_order"
     broker = DemoBroker(client(exchange), poll_every_s=5)
     broker.process(quote())
-    broker.submit(order("home", 5))
+    with pytest.raises(ValueError, match="invalid_order"):  # the runner records it rejected
+        broker.submit(order("home", 5))
     assert broker.rejected == [(order("home", 5), "HTTP 400 invalid_order")]
+
+
+def test_an_ioc_order_that_fills_nothing_is_a_rejection() -> None:
+    exchange = FakeExchange()
+    exchange.fill_nothing = True
+    broker = DemoBroker(client(exchange), poll_every_s=5)
+    broker.process(quote())
+    with pytest.raises(ValueError, match="filled nothing"):
+        broker.submit(order("home", 5))
+
+
+def test_a_failed_fills_poll_is_retried_not_raised() -> None:
+    exchange, clock = FakeExchange(), Clock()
+    broker = DemoBroker(client(exchange), poll_every_s=5, clock=clock)
+    broker.process(quote())
+    broker.submit(order("home", 10))
+    exchange.get_error = "GET fills: URLError timed out"
+    assert broker.process(quote()) == []
+    exchange.get_error = None
+    exchange.fills = [raw_fill("oid0", "10.00", "0.4500")]
+    clock.t += 5
+    assert [f.order.contracts for f in broker.process(quote())] == [10]
+
+
+def test_transport_wraps_network_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    import urllib.error
+    import urllib.request
+
+    from nba_winprob.brokers.kalshi_client import urllib_transport
+
+    def down(*args: Any, **kwargs: Any) -> Any:
+        raise urllib.error.URLError("connection reset")
+
+    monkeypatch.setattr(urllib.request, "urlopen", down)
+    with pytest.raises(KalshiError, match="URLError"):
+        urllib_transport("GET", f"{DEMO_BASE_URL}/portfolio/fills", {}, None)
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *a, **k: (_ for _ in ()).throw(TimeoutError())
+    )
+    with pytest.raises(KalshiError, match="TimeoutError"):
+        urllib_transport("GET", f"{DEMO_BASE_URL}/portfolio/fills", {}, None)
 
 
 def test_client_order_ids_are_unique() -> None:

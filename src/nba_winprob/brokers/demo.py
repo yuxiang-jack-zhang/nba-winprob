@@ -12,14 +12,17 @@ an order priced off production quotes may not fill. Its P&L means nothing.
 from __future__ import annotations
 
 import dataclasses
+import logging
 import time
 import uuid
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, NoReturn
 
 from nba_winprob.brokers.kalshi_client import BookSide, KalshiClient, KalshiError
 from nba_winprob.engine.events import Event, Fill, Order, Quote, Settle, Side, kalshi_taker_fee
+
+log = logging.getLogger(__name__)
 
 
 class DemoBroker:
@@ -43,15 +46,15 @@ class DemoBroker:
         self._last_poll = float("-inf")
 
     def submit(self, order: Order) -> None:
+        """Place the order; raises ``ValueError`` (as ``SimBroker`` does) if it is refused or
+        fills nothing, so the runner records it as rejected."""
         quote = self._quotes.get(order.game_id)
         if quote is None:
-            self.rejected.append((order, "no quote yet"))
-            return
+            self._reject(order, "no quote yet")
         side: BookSide = "bid" if (order.team == "home") == (order.contracts > 0) else "ask"
         price = quote.yes_ask if side == "bid" else quote.yes_bid  # YES-book price
         if not 0 < price < 1:
-            self.rejected.append((order, f"no {side} price to cross: {price}"))
-            return
+            self._reject(order, f"no {side} price to cross: {price}")
         try:
             resp = self.client.create_order(
                 quote.ticker,
@@ -62,9 +65,16 @@ class DemoBroker:
                 reduce_only=order.contracts < 0,  # a sell never opens the opposite side
             )
         except KalshiError as err:
-            self.rejected.append((order, str(err)))
-            return
+            # shortcut: a timed-out POST may still have placed the order; its fills are then
+            # ignored (unknown order_id). Reconcile by client_order_id before real money.
+            self._reject(order, str(err))
+        if float(resp.get("fill_count", 1)) == 0:  # immediate-or-cancel: nothing filled
+            self._reject(order, "immediate-or-cancel order filled nothing")
         self._orders[resp["order_id"]] = order
+
+    def _reject(self, order: Order, why: str) -> NoReturn:
+        self.rejected.append((order, why))
+        raise ValueError(why)
 
     def process(self, event: Event) -> list[Fill]:
         if isinstance(event, Quote):
@@ -76,8 +86,13 @@ class DemoBroker:
         if not self._orders or self.clock() - self._last_poll < self.poll_every_s:
             return []
         self._last_poll = self.clock()
+        try:
+            raw_fills = self.client.get_fills(min_ts=self._started)
+        except KalshiError:
+            log.exception("fills poll failed; retrying next poll")
+            return []
         new = []
-        for raw in self.client.get_fills(min_ts=self._started):
+        for raw in raw_fills:
             fill_id = raw["fill_id"]
             if fill_id in self._seen or raw["order_id"] not in self._orders:
                 continue

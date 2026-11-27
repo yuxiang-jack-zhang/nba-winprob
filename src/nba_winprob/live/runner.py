@@ -20,7 +20,7 @@ from typing import Protocol
 import psycopg
 
 from nba_winprob.db import live_store
-from nba_winprob.engine.events import Broker, Event, Play, Strategy
+from nba_winprob.engine.events import Broker, Event, Play, Settle, Strategy
 from nba_winprob.features.ingame import game_seconds_elapsed
 from nba_winprob.sources.espn import Game
 
@@ -48,7 +48,7 @@ def run_live(
     max_polls: int | None = None,
 ) -> None:
     """Poll until stopped. ``max_polls`` bounds the loop (tests, timed sessions)."""
-    order_ids: dict[int, int] = {}  # id(order) -> orders.id; Order holds a dict, so is unhashable
+    order_ids: dict[str, int] = {}  # Order.uid -> orders.id
     latest: dict[str, float] = {}  # game -> game seconds of the newest play written to game_state
     reason = "feed exhausted"
     try:
@@ -68,9 +68,12 @@ def run_live(
             sleep(poll_s)
     except BaseException as exc:  # KeyboardInterrupt included: record why the run ended
         reason = "stop requested" if isinstance(exc, KeyboardInterrupt) else f"error: {exc!r}"
+        try:
+            _close(conn, run_id, reason)
+        except Exception:  # e.g. the connection died too: keep the original error
+            log.exception("could not close run %d", run_id)
         raise
-    finally:
-        _close(conn, run_id, reason)
+    _close(conn, run_id, reason)
 
 
 def _step(
@@ -79,10 +82,17 @@ def _step(
     strategy: Strategy,
     broker: Broker,
     event: Event,
-    order_ids: dict[int, int],
+    order_ids: dict[str, int],
 ) -> None:
-    for fill in broker.process(event):
-        live_store.record_fill(conn, order_ids[id(fill.order)], fill)
+    fills = broker.process(event)
+    if isinstance(event, Settle):  # the broker dropped this game's unfilled orders
+        conn.execute(
+            "update orders set status = 'cancelled', error = 'game settled before it filled'"
+            " where run_id = %s and game_id = %s and status = 'pending'",
+            [run_id, event.game_id],
+        )
+    for fill in fills:
+        live_store.record_fill(conn, order_ids[fill.order.uid], fill)
         log.info(
             "fill %s %+d %s @ %.2f",
             fill.order.game_id,
@@ -93,7 +103,7 @@ def _step(
         strategy.on_fill(fill)
     for order in strategy.on_event(event, broker.positions):
         order_id = live_store.record_order(conn, run_id, order)
-        order_ids[id(order)] = order_id
+        order_ids[order.uid] = order_id
         log.info("order %s %+d %s: %s", order.game_id, order.contracts, order.team, order.reason)
         try:
             broker.submit(order)
