@@ -10,8 +10,10 @@ history (1,570 games of Kalshi minute prices and ESPN plays), an event-driven
 engine shared by backtest and live, and two pre-registered tests of in-game
 edges. Both came back negative, and are reported as such in
 [RESULTS.md](RESULTS.md) sections 7–8: the market already prices runs and game
-state, and fees plus spread cost ~10% of stake per round trip. In progress:
-live **paper** trading on Kalshi's real order book (`nba-winprob live run`).
+state, and fees plus spread cost ~10% of stake per round trip. Built, awaiting
+its first real games: live **paper** trading on Kalshi's real order book
+(`nba-winprob live run`) and a catch-up agent that pushes updates to Discord
+and answers questions there (`nba-winprob agent discord`).
 **No real-money order has been placed, and no code path can place one.**
 
 ## Origin and credit
@@ -47,6 +49,13 @@ this repo.
 - **The database is tested like code.** Migrations, upserts and constraints run
   against real Postgres, every test is mutation-checked, and the concurrency test
   caught a real migration race before it shipped ([decisions](docs/decisions.md)).
+- **Pre-registered trading tests.** The run-reversal rule and the in-game model
+  were specified before looking at the data and run once; both found no edge
+  after fees, and the write-up says so rather than tuning until something works.
+- **An agent that can't do the arithmetic wrong.** The catch-up agent's tools
+  compute P&L and prices in code, run on a read-only connection, and are graded
+  by evals (7/7 passing) against a scenario whose numbers the unit tests pin.
+  It pushes fills and game recaps to Discord and answers follow-ups there.
 - **Honest reporting.** The original comparison of three models turned out to
   use three different feature sets and splits. [RESULTS.md](RESULTS.md) says so.
 
@@ -123,6 +132,8 @@ uv run nba-winprob ingame fetch      # plays + minute candles for ~1,600 games (
 uv run nba-winprob ingame backtest   # the pre-registered run-reversal backtest (RESULTS §7)
 uv run nba-winprob ingame model      # does anything beat the market price? (RESULTS §8)
 uv run nba-winprob live run          # paper-trade today's games on Kalshi's real book
+uv run nba-winprob agent ask         # "catch me up" (needs ANTHROPIC_API_KEY in .env)
+uv run nba-winprob agent discord     # push fills/recaps/digests to Discord, chat there
 ```
 
 ## Layout
@@ -131,7 +142,7 @@ uv run nba-winprob live run          # paper-trade today's games on Kalshi's rea
 src/nba_winprob/
   config.py                 settings and paths, env-overridable; no absolute paths
   data/pregame_features.py  the feature pipeline (both variants)
-  features/                 feature builders shared by training and serving
+  features/                 feature builders shared by training and serving (pregame, in-game runs)
   models/
     pregame.py              logistic, MLP, XGBoost: splits, training, params
     metrics.py              log-loss, accuracy, AUC, Brier, ECE, by-stage
@@ -140,6 +151,15 @@ src/nba_winprob/
     migrations/             numbered SQL, applied once each under an advisory lock
     migrate.py              the migration runner
     store.py                base-table ETL, consistency checks, feature store
+    live_store.py           live runs: events, orders, fills, game state
+  engine/                   events contract, SimBroker, backtest loop, bootstrap metrics
+  sources/                  ESPN and Kalshi: history fetchers and live pollers
+  strategies/               RunReversal (pre-registered v1)
+  ingame/                   in-game history, the backtest report, the model study
+  live/runner.py            the live loop: feed -> broker -> strategy, all persisted
+  brokers/                  Kalshi demo client (signed V2 orders, demo hosts only)
+  agent/                    catch-up agent: read-only tools, Claude tool-use loop,
+                            Discord notifier and chat
   cli.py                    nba-winprob entry point
 tests/                      incl. test_no_leakage.py, the bug-pinning tests, test_db.py
 docs/decisions.md           every non-trivial decision: options, choice, why
@@ -150,21 +170,22 @@ artifacts/                  gitignored
 
 ## Architecture
 
-Only the left column exists today.
+One engine runs a strategy unchanged in backtest and live; only the event source
+and the broker differ.
 
 ```
-          BUILT                             NOT BUILT YET
-  ┌──────────────────────────┐    ┌─────────────────────────────┐
-  │ nba_winprob package      │    │ FastAPI  /predict/pregame   │
-  │  features + models       │    │          /predict/ingame    │
-  │  metrics + artifacts     │───▶│          /ask (LLM agent)   │
-  │  CLI, tests, CI          │    │ Postgres: predictions,      │
-  │ Postgres                 │    │   model_versions,           │
-  │  games, team_games,      │    │   game_states               │
-  │  pregame_features        │    │ Eval harness (50+ cases)    │
-  │  migrations, ETL         │    │ Docker → AWS, IaC, budget   │
-  └──────────────────────────┘    └─────────────────────────────┘
+ ESPN plays ───┐                                   ┌─ SimBroker: backtest on minute candles,
+               ├─▶ events ─▶ Strategy ─▶ Order ─▶──┤  or paper on Kalshi's live book
+ Kalshi book ──┘  (Play, Quote, Settle)            └─ DemoBroker: Kalshi demo exchange
+                                                          │
+                     runs, events, orders (with reasons), fills, game_state
+                                                          ▼
+                                                      Postgres ─▶ catch-up agent ◀─▶ Discord
+                                                                  (Claude + read-only tools)
 ```
+
+Not built yet: real-money orders (milestone 6) and a deployed, always-on
+trader (milestone 8).
 
 ## Design decisions
 
@@ -207,7 +228,11 @@ regression is a SIGSEGV rather than a test failure.
   strength.
 - The corrected features are **sharper but slightly less calibrated** (ECE +0.002
   to +0.006). A calibration layer is the right fix, and isn't built yet.
-- No live data. Everything is historical; `stats.nba.com` blocks cloud IPs.
+- Historical in-game prices are **one-minute candles**, so backtests cannot see
+  anything faster; live trading polls every few seconds but has not yet run
+  through a full game.
+- The Discord chat keeps its conversation in memory: a restart of
+  `agent discord` forgets it (the trading data is all in Postgres).
 
 ## Roadmap
 
@@ -217,9 +242,9 @@ regression is a SIGSEGV rather than a test failure.
 | 2 | Postgres schema, migrations, ETL | **done** (in-game possession table waits for the archive) |
 | 3 | In-game history (Kalshi minute prices + ESPN plays), event-driven engine, pre-registered run-reversal backtest | **done** (no edge) |
 | 4 | In-game model: what does the market price get wrong? | **done** (nothing beyond the price) |
-| 5 | Live paper trading on Kalshi's real book (demo exchange for the order path); orders and fills in Postgres | in progress |
+| 5 | Live paper trading on Kalshi's real book (demo exchange for the order path); orders and fills in Postgres | built; first live games pending |
 | 6 | Live orders: off by default, dollar caps, kill switch | |
-| 7 | Catch-up agent (Claude + tools over positions, trades, games) and its evals | |
+| 7 | Catch-up agent (Claude + tools over positions, trades, games) and its evals; Discord push + chat | **done** (7/7 evals pass) |
 | 8 | Deploy the live trader (Docker, cloud, budget alert) | |
 
 The roadmap changed after milestone 2, from "prediction API" to "trading

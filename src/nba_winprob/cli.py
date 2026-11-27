@@ -374,6 +374,49 @@ def live_run(
         )
 
 
+agent_app = typer.Typer(no_args_is_help=True, help="Catch-up agent: ask Claude about the bot.")
+app.add_typer(agent_app, name="agent")
+
+
+@agent_app.command("ask")
+def agent_ask(
+    question: Annotated[str, typer.Argument(help="What to ask.")] = (
+        "Catch me up: what is the bot holding, why, and how are its games going?"
+    ),
+    run: Annotated[int | None, typer.Option(help="Run id; default the latest.")] = None,
+) -> None:
+    """Ask about a live trading run. Needs ANTHROPIC_API_KEY (in .env is fine)."""
+    import anthropic
+
+    from nba_winprob.agent import tools
+    from nba_winprob.agent.catchup import ask
+    from nba_winprob.db import store
+
+    settings = get_settings()
+    with store.connect(settings) as conn:
+        tools.make_read_only(conn)
+        run_id = run if run is not None else tools.latest_run_id(conn)
+        if run_id is None:
+            raise typer.BadParameter("no runs yet; start one with `nba-winprob live run`")
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key or None)
+        answer = ask(client.beta.messages, conn, run_id, question)
+    typer.echo(answer.text)
+
+
+@agent_app.command("discord")
+def agent_discord() -> None:
+    """Push fills, recaps and digests to Discord, and chat there. Run beside `live run`."""
+    import logging
+
+    from nba_winprob.agent import discord_bot
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    try:
+        discord_bot.run(get_settings())
+    except ValueError as err:
+        raise typer.BadParameter(str(err)) from err
+
+
 @app.command("show-metrics")
 def show_metrics() -> None:
     """Print a table of every artifact's test metrics, newest config last."""

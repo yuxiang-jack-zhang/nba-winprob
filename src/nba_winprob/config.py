@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     kalshi_demo_private_key_path: Path | None = Field(
         default=None, validation_alias="KALSHI_DEMO_PRIVATE_KEY_PATH"
     )
+    # For the catch-up agent. Empty falls back to the SDK's own credential lookup.
+    anthropic_api_key: str = Field(default="", validation_alias="ANTHROPIC_API_KEY")
+    # The catch-up agent's Discord bot: its token, and the one channel it posts and chats in.
+    discord_bot_token: str = Field(default="", validation_alias="DISCORD_BOT_TOKEN")
+    discord_channel_id: int | None = Field(default=None, validation_alias="DISCORD_CHANNEL_ID")
 
     @field_validator("data_dir", "artifact_dir", "archive_path", mode="after")
     @classmethod
