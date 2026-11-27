@@ -1,0 +1,158 @@
+{
+ "events": [
+  {
+   "id": "401909317",
+   "date": "2026-11-25T22:00Z",
+   "name": "Miami Heat at Philadelphia 76ers",
+   "season": {
+    "year": 2027,
+    "type": 2,
+    "slug": "regular-season"
+   },
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "name": "STATUS_FINAL",
+       "state": "post",
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "PHI"
+       },
+       "score": "111",
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "MIA"
+       },
+       "score": "104",
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909318",
+   "date": "2026-11-26T00:00Z",
+   "name": "Chicago Bulls at Charlotte Hornets",
+   "season": {
+    "year": 2027,
+    "type": 2,
+    "slug": "regular-season"
+   },
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "name": "STATUS_FINAL",
+       "state": "post",
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "CHA"
+       },
+       "score": "105",
+       "winner": false
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "CHI"
+       },
+       "score": "107",
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909319",
+   "date": "2026-11-26T00:30Z",
+   "name": "Cleveland Cavaliers at New York Knicks",
+   "season": {
+    "year": 2027,
+    "type": 2,
+    "slug": "regular-season"
+   },
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "name": "STATUS_FINAL",
+       "state": "post",
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "NY"
+       },
+       "score": "121",
+       "winner": true
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "CLE"
+       },
+       "score": "102",
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909326",
+   "date": "2026-11-28T00:00Z",
+   "name": "Miami Heat at New York Knicks",
+   "season": {
+    "year": 2027,
+    "type": 2,
+    "slug": "regular-season"
+   },
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "name": "STATUS_SCHEDULED",
+       "state": "pre",
+       "completed": false
+      }
+     },
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "NY"
+       },
+       "score": "0"
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "MIA"
+       },
+       "score": "0"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
