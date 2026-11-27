@@ -1,0 +1,919 @@
+{
+"header": {
+"competitions": [
+{
+"date": "2026-04-07T00:00Z",
+"competitors": [
+{
+"id": "24",
+"homeAway": "home",
+"score": "29"
+},
+{
+"id": "20",
+"homeAway": "away",
+"score": "28"
+}
+]
+}
+]
+},
+"plays": [
+{
+"id": "4018110014",
+"sequenceNumber": "4",
+"type": {
+"text": "Jumpball"
+},
+"text": "Joel Embiid vs. Victor Wembanyama (De'Aaron Fox gains possession)",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "12:00"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:11:09Z"
+},
+{
+"id": "4018110017",
+"sequenceNumber": "7",
+"type": {
+"text": "Jump Shot"
+},
+"text": "Victor Wembanyama misses 25-foot three point jumper",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:48"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:11:18Z"
+},
+{
+"id": "4018110018",
+"sequenceNumber": "8",
+"type": {
+"text": "Defensive Rebound"
+},
+"text": "Joel Embiid defensive rebound",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:45"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:11:21Z"
+},
+{
+"id": "4018110019",
+"sequenceNumber": "9",
+"type": {
+"text": "Step Back Jump Shot"
+},
+"text": "Joel Embiid misses 12-foot step back jumpshot",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:38"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:11:30Z"
+},
+{
+"id": "40181100110",
+"sequenceNumber": "10",
+"type": {
+"text": "Defensive Rebound"
+},
+"text": "Stephon Castle defensive rebound",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:36"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:11:32Z"
+},
+{
+"id": "40181100111",
+"sequenceNumber": "11",
+"type": {
+"text": "Driving Layup Shot"
+},
+"text": "Joel Embiid blocks Victor Wembanyama 's 7-foot driving layup",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:28"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:11:41Z"
+},
+{
+"id": "40181100113",
+"sequenceNumber": "13",
+"type": {
+"text": "Offensive Rebound"
+},
+"text": "Devin Vassell offensive rebound",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:26"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:11:43Z"
+},
+{
+"id": "40181100115",
+"sequenceNumber": "15",
+"type": {
+"text": "Jump Shot"
+},
+"text": "Stephon Castle misses 25-foot three point jumper",
+"awayScore": 0,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:24"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:11:48Z"
+},
+{
+"id": "40181100117",
+"sequenceNumber": "17",
+"type": {
+"text": "Jump Shot"
+},
+"text": "Paul George makes 23-foot three point jumper (Tyrese Maxey assists)",
+"awayScore": 3,
+"homeScore": 0,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "11:08"
+},
+"scoringPlay": true,
+"scoreValue": 3,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:11:59Z"
+},
+{
+"id": "40181100123",
+"sequenceNumber": "23",
+"type": {
+"text": "Running Jump Shot"
+},
+"text": "Devin Vassell makes 22-foot running jump shot (Stephon Castle assists)",
+"awayScore": 3,
+"homeScore": 3,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "10:43"
+},
+"scoringPlay": true,
+"scoreValue": 3,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:12:25Z"
+},
+{
+"id": "40181100129",
+"sequenceNumber": "29",
+"type": {
+"text": "Free Throw - 1 of 2"
+},
+"text": "Stephon Castle makes free throw 1 of 2",
+"awayScore": 3,
+"homeScore": 4,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "10:18"
+},
+"scoringPlay": true,
+"scoreValue": 1,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:13:27Z"
+},
+{
+"id": "40181100130",
+"sequenceNumber": "30",
+"type": {
+"text": "Free Throw - 2 of 2"
+},
+"text": "Stephon Castle makes free throw 2 of 2",
+"awayScore": 3,
+"homeScore": 5,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "10:18"
+},
+"scoringPlay": true,
+"scoreValue": 1,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:13:27Z"
+},
+{
+"id": "40181100135",
+"sequenceNumber": "35",
+"type": {
+"text": "Running Pullup Jump Shot"
+},
+"text": "VJ Edgecombe makes 25-foot running pullup jump shot",
+"awayScore": 6,
+"homeScore": 5,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "9:46"
+},
+"scoringPlay": true,
+"scoreValue": 3,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:14:25Z"
+},
+{
+"id": "40181100158",
+"sequenceNumber": "58",
+"type": {
+"text": "Free Throw - 1 of 1"
+},
+"text": "Kelly Oubre Jr. makes free throw 1 of 1",
+"awayScore": 7,
+"homeScore": 5,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "9:46"
+},
+"scoringPlay": true,
+"scoreValue": 1,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:14:54Z"
+},
+{
+"id": "40181100143",
+"sequenceNumber": "43",
+"type": {
+"text": "Tip Shot"
+},
+"text": "Kelly Oubre Jr. makes tip shot",
+"awayScore": 8,
+"homeScore": 5,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "9:28"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:15:27Z"
+},
+{
+"id": "40181100148",
+"sequenceNumber": "48",
+"type": {
+"text": "Driving Dunk Shot"
+},
+"text": "Victor Wembanyama makes driving dunk",
+"awayScore": 8,
+"homeScore": 7,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "8:51"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:15:58Z"
+},
+{
+"id": "40181100152",
+"sequenceNumber": "52",
+"type": {
+"text": "Driving Dunk Shot"
+},
+"text": "Stephon Castle makes driving dunk",
+"awayScore": 8,
+"homeScore": 9,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "8:29"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:16:21Z"
+},
+{
+"id": "40181100153",
+"sequenceNumber": "53",
+"type": {
+"text": "Jump Shot"
+},
+"text": "Paul George makes 25-foot three point jumper (Tyrese Maxey assists)",
+"awayScore": 11,
+"homeScore": 9,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "8:06"
+},
+"scoringPlay": true,
+"scoreValue": 3,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:16:45Z"
+},
+{
+"id": "40181100155",
+"sequenceNumber": "55",
+"type": {
+"text": "Step Back Jump Shot"
+},
+"text": "Stephon Castle makes 20-foot step back jumpshot (Victor Wembanyama assists)",
+"awayScore": 11,
+"homeScore": 11,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "7:49"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:16:59Z"
+},
+{
+"id": "40181100157",
+"sequenceNumber": "57",
+"type": {
+"text": "Full Timeout"
+},
+"text": "76ers Full timeout",
+"awayScore": 11,
+"homeScore": 11,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "7:42"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:17:20Z"
+},
+{
+"id": "40181100167",
+"sequenceNumber": "67",
+"type": {
+"text": "Driving Dunk Shot"
+},
+"text": "Victor Wembanyama makes driving dunk (Julian Champagnie assists)",
+"awayScore": 12,
+"homeScore": 13,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "7:13"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:20:39Z"
+},
+{
+"id": "40181100172",
+"sequenceNumber": "72",
+"type": {
+"text": "Free Throw - 1 of 1"
+},
+"text": "Victor Wembanyama makes free throw 1 of 1",
+"awayScore": 12,
+"homeScore": 14,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "7:13"
+},
+"scoringPlay": true,
+"scoreValue": 1,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:21:19Z"
+},
+{
+"id": "40181100176",
+"sequenceNumber": "76",
+"type": {
+"text": "Step Back Jump Shot"
+},
+"text": "Paul George makes 25-foot three point step back jumpshot (Tyrese Maxey assists)",
+"awayScore": 15,
+"homeScore": 14,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "6:39"
+},
+"scoringPlay": true,
+"scoreValue": 3,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:22:00Z"
+},
+{
+"id": "40181100178",
+"sequenceNumber": "78",
+"type": {
+"text": "Alley Oop Dunk Shot"
+},
+"text": "Victor Wembanyama makes 1-foot alley oop dunk (Stephon Castle assists)",
+"awayScore": 15,
+"homeScore": 16,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "6:21"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:22:18Z"
+},
+{
+"id": "40181100181",
+"sequenceNumber": "81",
+"type": {
+"text": "Layup Shot"
+},
+"text": "Andre Drummond makes layup (VJ Edgecombe assists)",
+"awayScore": 17,
+"homeScore": 16,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "6:13"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:22:30Z"
+},
+{
+"id": "40181100187",
+"sequenceNumber": "87",
+"type": {
+"text": "Free Throw - 1 of 1"
+},
+"text": "Andre Drummond makes free throw 1 of 1",
+"awayScore": 18,
+"homeScore": 16,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "6:13"
+},
+"scoringPlay": true,
+"scoreValue": 1,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:23:03Z"
+},
+{
+"id": "40181100188",
+"sequenceNumber": "88",
+"type": {
+"text": "Turnaround Jump Shot"
+},
+"text": "Dylan Harper makes 16-foot turnaround jump shot",
+"awayScore": 18,
+"homeScore": 18,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "5:59"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:23:20Z"
+},
+{
+"id": "401811001100",
+"sequenceNumber": "100",
+"type": {
+"text": "Driving Layup Shot"
+},
+"text": "Paul George makes driving layup",
+"awayScore": 20,
+"homeScore": 18,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "5:05"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:24:39Z"
+},
+{
+"id": "401811001105",
+"sequenceNumber": "105",
+"type": {
+"text": "Fade Away Jump Shot"
+},
+"text": "Devin Vassell makes 13-foot fade away jump shot (Carter Bryant assists)",
+"awayScore": 20,
+"homeScore": 20,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "4:11"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:25:33Z"
+},
+{
+"id": "401811001114",
+"sequenceNumber": "114",
+"type": {
+"text": "Driving Finger Roll Layup"
+},
+"text": "Dylan Harper makes 2-foot two point shot",
+"awayScore": 20,
+"homeScore": 22,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "3:48"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:26:34Z"
+},
+{
+"id": "401811001118",
+"sequenceNumber": "118",
+"type": {
+"text": "Free Throw - 1 of 2"
+},
+"text": "Dominick Barlow makes free throw 1 of 2",
+"awayScore": 21,
+"homeScore": 22,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "3:33"
+},
+"scoringPlay": true,
+"scoreValue": 1,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:27:28Z"
+},
+{
+"id": "401811001121",
+"sequenceNumber": "121",
+"type": {
+"text": "Free Throw - 2 of 2"
+},
+"text": "Dominick Barlow makes free throw 2 of 2",
+"awayScore": 22,
+"homeScore": 22,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "3:33"
+},
+"scoringPlay": true,
+"scoreValue": 1,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:27:45Z"
+},
+{
+"id": "401811001124",
+"sequenceNumber": "124",
+"type": {
+"text": "Jump Shot"
+},
+"text": "Joel Embiid makes 14-foot jumper (Tyrese Maxey assists)",
+"awayScore": 24,
+"homeScore": 22,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "3:10"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:28:11Z"
+},
+{
+"id": "401811001126",
+"sequenceNumber": "126",
+"type": {
+"text": "Full Timeout"
+},
+"text": "Spurs Full timeout",
+"awayScore": 24,
+"homeScore": 22,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "3:08"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:28:16Z"
+},
+{
+"id": "401811001136",
+"sequenceNumber": "136",
+"type": {
+"text": "Running Finger Roll Layup"
+},
+"text": "Justin Edwards makes two point shot",
+"awayScore": 26,
+"homeScore": 22,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "2:38"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:32:16Z"
+},
+{
+"id": "401811001146",
+"sequenceNumber": "146",
+"type": {
+"text": "Jump Shot"
+},
+"text": "Keldon Johnson makes 23-foot three point jumper (Dylan Harper assists)",
+"awayScore": 26,
+"homeScore": 25,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "2:01"
+},
+"scoringPlay": true,
+"scoreValue": 3,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:33:21Z"
+},
+{
+"id": "401811001151",
+"sequenceNumber": "151",
+"type": {
+"text": "Driving Dunk Shot"
+},
+"text": "Harrison Barnes makes driving dunk (Dylan Harper assists)",
+"awayScore": 26,
+"homeScore": 27,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "1:24"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:33:59Z"
+},
+{
+"id": "401811001155",
+"sequenceNumber": "155",
+"type": {
+"text": "Running Alley Oop Dunk Shot"
+},
+"text": "Victor Wembanyama makes dunk (De'Aaron Fox assists)",
+"awayScore": 26,
+"homeScore": 29,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "58.2"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "24"
+},
+"wallclock": "2026-04-07T00:34:26Z"
+},
+{
+"id": "401811001163",
+"sequenceNumber": "163",
+"type": {
+"text": "Layup Driving Reverse"
+},
+"text": "Joel Embiid makes two point shot (Tyrese Maxey assists)",
+"awayScore": 28,
+"homeScore": 29,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "10.0"
+},
+"scoringPlay": true,
+"scoreValue": 2,
+"team": {
+"id": "20"
+},
+"wallclock": "2026-04-07T00:35:45Z"
+},
+{
+"id": "401811001168",
+"sequenceNumber": "168",
+"type": {
+"text": "End Period"
+},
+"text": "End of the 1st Quarter",
+"awayScore": 28,
+"homeScore": 29,
+"period": {
+"number": 1
+},
+"clock": {
+"displayValue": "0.0"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"wallclock": "2026-04-07T00:36:09Z"
+},
+{
+"id": "401811001702",
+"sequenceNumber": "702",
+"type": {
+"text": "End Game"
+},
+"text": "End of Game",
+"awayScore": 102,
+"homeScore": 115,
+"period": {
+"number": 4
+},
+"clock": {
+"displayValue": "0.0"
+},
+"scoringPlay": false,
+"scoreValue": 0,
+"wallclock": "2026-04-07T00:37:09Z"
+}
+]
+}

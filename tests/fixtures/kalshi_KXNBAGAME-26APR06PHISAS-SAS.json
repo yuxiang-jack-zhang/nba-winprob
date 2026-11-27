@@ -1,0 +1,95 @@
+{
+"ticker": "KXNBAGAME-26APR06PHISAS-SAS",
+"candlesticks": [
+{
+"end_period_ts": 1775520600,
+"volume": "505.00",
+"yes_ask": {
+"close": "0.7700"
+},
+"yes_bid": {
+"close": "0.7600"
+}
+},
+{
+"end_period_ts": 1775520660,
+"volume": "6678.00",
+"yes_ask": {
+"close": "0.7700"
+},
+"yes_bid": {
+"close": "0.7600"
+}
+},
+{
+"end_period_ts": 1775520720,
+"volume": "2359.00",
+"yes_ask": {
+"close": "0.7700"
+},
+"yes_bid": {
+"close": "0.7600"
+}
+},
+{
+"end_period_ts": 1775520780,
+"volume": "40841.00",
+"yes_ask": {
+"close": "0.7900"
+},
+"yes_bid": {
+"close": "0.7700"
+}
+},
+{
+"end_period_ts": 1775520840,
+"volume": "9843.00",
+"yes_ask": {
+"close": "0.7900"
+},
+"yes_bid": {
+"close": "0.7800"
+}
+},
+{
+"end_period_ts": 1775520900,
+"volume": "16281.00",
+"yes_ask": {
+"close": "0.7700"
+},
+"yes_bid": {
+"close": "0.7600"
+}
+},
+{
+"end_period_ts": 1775529120,
+"volume": "5681.00",
+"yes_ask": {
+"close": "1.0000"
+},
+"yes_bid": {
+"close": "0.9900"
+}
+},
+{
+"end_period_ts": 1775529180,
+"volume": "0.00",
+"yes_ask": {
+"close": "1.0000"
+},
+"yes_bid": {
+"close": "0.9900"
+}
+},
+{
+"end_period_ts": 1775528820,
+"volume": "62893.00",
+"yes_ask": {
+"close": "1.0000"
+},
+"yes_bid": {
+"close": "0.9900"
+}
+}
+]
+}
