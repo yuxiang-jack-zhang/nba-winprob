@@ -47,20 +47,23 @@ def connect(settings: Settings) -> psycopg.Connection:
 
 
 def load_baseline(conn: psycopg.Connection, settings: Settings) -> dict[str, int]:
-    """Load the baseline CSVs, then build and store both feature variants from the DB."""
-    upsert_base_tables(
-        conn,
-        *read_base_csvs(
-            settings.baseline_dir / "games.csv", settings.baseline_dir / "team_games.csv"
-        ),
+    """Load the baseline CSVs, then build and store both feature variants from the DB.
+
+    One transaction: if any step fails, nothing is written, so the base tables and
+    both variants always come from the same load. ``features_*`` count rows changed.
+    """
+    raw = read_base_csvs(
+        settings.baseline_dir / "games.csv", settings.baseline_dir / "team_games.csv"
     )
-    games, team_games = clean_base_tables(*read_base_tables(conn))
-    counts = {"labelled_games": len(games), "team_games": len(team_games)}
-    for variant in VARIANTS:
-        _, master = build_pregame_master(
-            games, team_games, k=settings.elo_k, init=settings.elo_init, variant=variant
-        )
-        counts[f"features_{variant}"] = write_features(conn, master, variant)
+    with conn.transaction():
+        upsert_base_tables(conn, *raw)
+        games, team_games = clean_base_tables(*read_base_tables(conn))
+        counts = {"labelled_games": len(games), "team_games": len(team_games)}
+        for variant in VARIANTS:
+            _, master = build_pregame_master(
+                games, team_games, k=settings.elo_k, init=settings.elo_init, variant=variant
+            )
+            counts[f"features_{variant}"] = write_features(conn, master, variant)
     return counts
 
 
@@ -69,9 +72,9 @@ def upsert_base_tables(
 ) -> None:
     """Insert or update raw ``games`` and ``team_games`` (CSV-shaped) in one transaction.
 
-    Raises ``ValueError``, writing nothing, if a team-game row disagrees with its
-    game about who is home, the season, the date or the result, or names a team
-    that did not play in it.
+    Raises ``ValueError``, writing nothing, if a key repeats, a team-game row
+    disagrees with its game about who is home, the season, the date or the result,
+    or any team-game row (incoming or already stored) names a team that did not play.
     """
     _check_consistent(games, team_games)
     stats = [c for c in team_games.columns if c not in ("gameId", "teamId", *_FROM_GAMES)]
@@ -89,9 +92,22 @@ def upsert_base_tables(
             ["game_id", "team_id"],
             _records(team_games[["gameId", "teamId", *stats]]),
         )
+        # Stored rows too: changing a game's teams must not orphan its old team rows.
+        row = conn.execute(
+            "select count(*) from team_games t join games g using (game_id)"
+            " where t.team_id not in (g.home_team_id, g.away_team_id)"
+        ).fetchone()
+        if row and row[0]:
+            raise ValueError(f"{row[0]} stored team_games rows name a team that did not play")
 
 
 def _check_consistent(games: pd.DataFrame, team_games: pd.DataFrame) -> None:
+    for name, df, key in (
+        ("games", games, ["gameId"]),
+        ("team_games", team_games, ["gameId", "teamId"]),
+    ):
+        if df.duplicated(key).any():
+            raise ValueError(f"{name} has duplicate {key} rows")
     merged = team_games.merge(
         games[["gameId", *_FROM_GAMES]], on="gameId", how="left", suffixes=("", "_g")
     )
@@ -135,7 +151,10 @@ def read_base_tables(conn: psycopg.Connection) -> tuple[pd.DataFrame, pd.DataFra
 
 
 def write_features(conn: psycopg.Connection, master: pd.DataFrame, variant: str) -> int:
-    """Store one row per game: its feature columns as a JSON object. Returns rows written."""
+    """Store one row per game: its feature columns as a JSON object; returns rows changed.
+
+    ``master`` replaces the variant: rows for games it no longer has are deleted.
+    """
     feature_cols = [c for c in master.columns if c not in ID_COLS]
     values = master[feature_cols].to_numpy(dtype=float)
     rows = (
@@ -143,6 +162,10 @@ def write_features(conn: psycopg.Connection, master: pd.DataFrame, variant: str)
         for game_id, row in zip(master["gameId"], values, strict=True)
     )
     with conn.transaction():
+        conn.execute(
+            "delete from pregame_features where variant = %s and not (game_id = any(%s))",
+            [variant, [int(g) for g in master["gameId"]]],
+        )
         return _upsert(
             conn,
             "pregame_features",
@@ -180,14 +203,17 @@ def _upsert(
     rows: Iterable[Sequence[Any]],
     refresh: Sequence[str] = (),
 ) -> int:
-    """COPY ``rows`` into a staging table, then insert-or-update by ``key``.
+    """COPY ``rows`` into a staging table, then insert-or-update by ``key``; returns
+    rows inserted or changed (an identical row is left alone).
 
-    ``refresh`` names defaulted columns (timestamps) reset on update too.
-    Must run inside a transaction: the staging table drops on commit.
+    ``refresh`` names defaulted columns (timestamps) reset when a row changes.
+    Must run inside a transaction. The stage is dropped here, not on commit: inside an
+    outer transaction this one is only a savepoint, and the next call reuses the name.
     """
     stage = sql.Identifier(f"_stage_{table}")
     cols = sql.SQL(", ").join(map(sql.Identifier, columns))
-    updates = [c for c in columns if c not in key] + list(refresh)
+    values = [c for c in columns if c not in key]
+    updates = values + list(refresh)
     conn.execute(
         sql.SQL("create temp table {} (like {} including defaults) on commit drop").format(
             stage, sql.Identifier(table)
@@ -200,6 +226,7 @@ def _upsert(
         sql.SQL(
             "insert into {table} ({cols}) select {cols} from {stage}"
             " on conflict ({key}) do update set {updates}"
+            " where {mine} is distinct from {theirs}"
         ).format(
             table=sql.Identifier(table),
             cols=cols,
@@ -208,8 +235,16 @@ def _upsert(
             updates=sql.SQL(", ").join(
                 sql.SQL("{c} = excluded.{c}").format(c=sql.Identifier(c)) for c in updates
             ),
+            # row(...) so a single column still compares as a row
+            mine=sql.SQL("row({})").format(
+                sql.SQL(", ").join(sql.Identifier(table, c) for c in values)
+            ),
+            theirs=sql.SQL("row({})").format(
+                sql.SQL(", ").join(sql.Identifier("excluded", c) for c in values)
+            ),
         )
     )
+    conn.execute(sql.SQL("drop table {}").format(stage))
     return cur.rowcount
 
 

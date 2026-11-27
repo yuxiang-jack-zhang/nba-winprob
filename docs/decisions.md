@@ -68,11 +68,14 @@ costs a merge. All 16,356 baseline rows pass.
 ## D6. Loads are upserts, not truncate-and-reload — 2026-11-26
 **Context:** the prediction log (milestone 3) will reference games, so wiping and reloading
 games would break or cascade into it.
-**Decision:** `COPY` into a temp table, then `insert … on conflict do update`, one transaction
-per load. Re-running is a no-op; changed values are updated. **Why:** idempotent and safe to
-re-run on a live database. **Limit:** a row removed from the source is not removed from the
-table. The baseline is append-only, so this does not arise yet. **Revisit if:** a source starts
-retracting games.
+**Decision:** `COPY` into a temp table, then `insert … on conflict do update … where` the row
+differs, all in one transaction per load (base tables and both feature variants commit
+together or not at all). Re-running is a no-op: identical rows are not rewritten or re-stamped,
+and the counts report rows changed. Each feature variant is replaced as a whole, so features of
+a game that dropped out of the build are deleted. **Why:** idempotent and safe to re-run on a
+live database. **Limit:** a game or team game removed from the source is not removed from the
+base tables. The baseline is append-only, so this does not arise yet. **Revisit if:** a source
+starts retracting games.
 
 ## D7. DB tests run against real Postgres, one fresh database per test — 2026-11-26
 **Context:** the constraints, the upsert and the migration lock are Postgres behaviour; a mock
